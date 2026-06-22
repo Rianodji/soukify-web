@@ -1,36 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Soukify Web
 
-## Getting Started
+Interface web de la marketplace Soukify — acheteurs, vendeurs et backoffice admin.
 
-First, run the development server:
+> Stack : Next.js 14 (App Router) + TypeScript + Tailwind CSS
+
+---
+
+## Prérequis
+
+- Node.js 20+
+
+## Installation
 
 ```bash
+npm install
+cp .env.example .env.local   # remplir les valeurs
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Ouvrir [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Variables d'environnement
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```env
+NEXT_PUBLIC_API_URL=http://localhost:3020/api/v1
+```
 
-## Learn More
+Copier `.env.example` en `.env.local` et remplir les valeurs.
 
-To learn more about Next.js, take a look at the following resources:
+## Structure
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+app/          Pages et layouts (App Router)
+components/   Composants réutilisables
+lib/          Clients API, helpers
+public/       Assets statiques
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Scripts
 
-## Deploy on Vercel
+```bash
+npm run dev      # dev avec hot reload
+npm run build    # build production
+npm run lint     # ESLint
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Liens utiles
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- API backend : [github.com/Rianodji/soukify](https://github.com/Rianodji/soukify)
+- Mobile : [github.com/Rianodji/soukify-mobile](https://github.com/Rianodji/soukify-mobile)
