@@ -1,0 +1,16 @@
+services:
+  web:
+    image: ${DOCKERHUB_USERNAME}/soukify-web:${TAG}
+    networks:
+      - web
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.soukify-web.rule=Host(`soukify.teamnoble.fr`)
+      - traefik.http.routers.soukify-web.entrypoints=websecure
+      - traefik.http.routers.soukify-web.tls.certresolver=le
+      - traefik.http.services.soukify-web.loadbalancer.server.port=3000
+    restart: unless-stopped
+
+networks:
+  web:
+    external: true

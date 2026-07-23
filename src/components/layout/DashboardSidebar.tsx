@@ -30,13 +30,13 @@ const NAV_ITEMS: NavItem[] = [
     href: "/dashboard/annonces",
     label: "Mes annonces",
     icon: Package,
-    roles: ["SELLER", "PRO"],
+    roles: ["SELLER", "PRO_SELLER"],
   },
   {
     href: "/dashboard/boutique",
     label: "Ma boutique",
     icon: Store,
-    roles: ["PRO"],
+    roles: ["PRO_SELLER"],
   },
   {
     href: "/dashboard/orders",
@@ -52,7 +52,7 @@ const NAV_ITEMS: NavItem[] = [
     href: "/dashboard/wallet",
     label: "Mon portefeuille",
     icon: Wallet,
-    roles: ["SELLER", "PRO"],
+    roles: ["SELLER", "PRO_SELLER"],
   },
   {
     href: "/dashboard/profile",
@@ -126,7 +126,7 @@ export function DashboardSidebar({ userRoles, userName, isOpen, onClose }: Sideb
     if (userRoles.includes("FINANCE")) return "Finance";
     if (userRoles.includes("SUPPORT")) return "Support";
     if (userRoles.includes("ACCOUNT_MANAGER")) return "Account Manager";
-    if (userRoles.includes("PRO")) return "Vendeur Pro";
+    if (userRoles.includes("PRO_SELLER")) return "Vendeur Pro";
     if (userRoles.includes("SELLER")) return "Vendeur";
     return "Acheteur";
   })();

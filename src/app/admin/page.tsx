@@ -422,9 +422,9 @@ async function AccountManagerDashboardView() {
       .then((r) => { approvedTotal = r.total; }),
     serverGet<PaginatedResponse<Shop>>("/admin/shops?status=SUSPENDED&limit=1", 0)
       .then((r) => { suspendedTotal = r.total; }),
-    serverGet<PaginatedResponse<AdminUser>>("/admin/users?role=PRO&limit=1", 0)
+    serverGet<PaginatedResponse<AdminUser>>("/admin/users?role=PRO_SELLER&limit=1", 0)
       .then((r) => { proUsersTotal = r.total; }),
-    serverGet<PaginatedResponse<AdminUser>>("/admin/users?role=PRO&limit=6", 0)
+    serverGet<PaginatedResponse<AdminUser>>("/admin/users?role=PRO_SELLER&limit=6", 0)
       .then((r) => { recentProUsers = r.items; }),
     serverGet<PaginatedResponse<AuditEntry>>("/admin/audit?limit=8", 0)
       .then((r) => { auditEntries = r.items.filter((e) =>
@@ -451,7 +451,7 @@ async function AccountManagerDashboardView() {
               <span className="ml-1 bg-white/20 text-white text-xs font-bold px-1.5 rounded-full">{pendingTotal}</span>
             )}
           </Link>
-          <Link href="/admin/users?role=PRO"
+          <Link href="/admin/users?role=PRO_SELLER"
             className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-text-secondary text-sm font-medium hover:border-brand hover:text-brand transition-colors">
             <Users className="w-4 h-4" /> Utilisateurs PRO
           </Link>
@@ -491,7 +491,7 @@ async function AccountManagerDashboardView() {
           href="/admin/shops?status=SUSPENDED" />
         <StatCard label="Utilisateurs PRO" value={proUsersTotal}
           icon={Users} iconColor="text-brand" iconBg="bg-primary-50"
-          href="/admin/users?role=PRO" />
+          href="/admin/users?role=PRO_SELLER" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -541,7 +541,7 @@ async function AccountManagerDashboardView() {
         <div className="bg-white rounded-2xl border border-border overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-border">
             <h3 className="font-semibold text-text-primary">Utilisateurs PRO récents</h3>
-            <Link href="/admin/users?role=PRO" className="text-xs text-brand hover:underline">
+            <Link href="/admin/users?role=PRO_SELLER" className="text-xs text-brand hover:underline">
               Tout voir
             </Link>
           </div>

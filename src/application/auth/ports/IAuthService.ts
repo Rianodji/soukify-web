@@ -1,15 +1,18 @@
 import type {
+  AuthTokens,
+  ForgotPasswordPayload,
+  LoginPayload,
+  LoginResponse,
   RegisterPayload,
   RegisterResponse,
-  SendOtpResponse,
-  VerifyOtpPayload,
-  VerifyOtpResponse,
+  ResetPasswordPayload,
 } from "@/types/api";
 
 export interface IAuthService {
+  login(payload: LoginPayload): Promise<LoginResponse>;
   register(payload: RegisterPayload): Promise<RegisterResponse>;
-  sendOtp(phoneNumber: string): Promise<SendOtpResponse>;
-  verifyOtp(payload: VerifyOtpPayload): Promise<VerifyOtpResponse>;
-  logout(): Promise<void>;
-  refreshTokens(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }>;
+  forgotPassword(payload: ForgotPasswordPayload): Promise<void>;
+  resetPassword(payload: ResetPasswordPayload): Promise<void>;
+  logout(refreshToken: string): Promise<void>;
+  refreshTokens(refreshToken: string): Promise<AuthTokens>;
 }

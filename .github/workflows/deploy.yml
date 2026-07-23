@@ -1,0 +1,89 @@
+name: Build, scan and deploy
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history (not just the tagged commit) — repo is public, gitleaks
+          # needs to scan every past commit, not only the current tree.
+          fetch-depth: 0
+
+      - name: Extract tag
+        id: meta
+        run: echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Scan for leaked secrets (gitleaks)
+        run: |
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest \
+            detect --source=/repo --redact -v
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/soukify-web:${{ steps.meta.outputs.tag }}
+          build-args: |
+            NEXT_PUBLIC_API_URL=https://api-souk.teamnoble.fr/api/v1
+
+      # Warn-only — CVEs in base images are frequent/noisy, they shouldn't block a
+      # routine release. Unlike gitleaks above, which fails the job on a real leak.
+      - name: Scan image for vulnerabilities (trivy)
+        run: |
+          docker run --rm aquasec/trivy:latest image \
+            --severity CRITICAL,HIGH \
+            --exit-code 0 \
+            --ignore-unfixed \
+            "${{ secrets.DOCKERHUB_USERNAME }}/soukify-web:${{ steps.meta.outputs.tag }}"
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync docker-compose.prod.yml to server
+        uses: burnett01/rsync-deployments@7.0.1
+        with:
+          switches: -avz --delete --exclude=.git --exclude=.github --exclude=.env --exclude=node_modules --exclude=src --exclude=public
+          path: ./
+          remote_path: ~/soukify-web/
+          remote_host: ${{ vars.DEPLOY_SSH_HOST }}
+          remote_user: ${{ vars.DEPLOY_SSH_USER }}
+          remote_key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Render .env and deploy stack
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ vars.DEPLOY_SSH_HOST }}
+          username: ${{ vars.DEPLOY_SSH_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -e
+            cat > ~/soukify-web/.env <<EOF
+            DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
+            TAG=${{ needs.build-and-push.outputs.tag }}
+            EOF
+            chmod 600 ~/soukify-web/.env
+            cd ~/soukify-web
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans

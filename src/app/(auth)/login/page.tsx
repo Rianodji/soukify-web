@@ -1,59 +1,62 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { ArrowRight, Phone } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Mail } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/Button";
-import { PhoneInput } from "@/components/ui/PhoneInput";
-import { phoneSchema, type PhoneFormData } from "@/lib/validations/auth";
+import { Input } from "@/components/ui/Input";
+import { loginSchema, type LoginFormData } from "@/lib/validations/auth";
 import { authService } from "@/infrastructure/auth/AuthApiAdapter";
 import { HttpError } from "@/infrastructure/http/ApiClient";
-import { PhoneNumber } from "@/domain/auth/PhoneNumber";
+import { isSafeInternalPath } from "@/lib/utils";
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
-  const [normalizedPhone, setNormalizedPhone] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const {
+    register,
     handleSubmit,
-    setValue,
     formState: { errors },
-  } = useForm<PhoneFormData>({
-    resolver: zodResolver(phoneSchema),
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: searchParams.get("email") ?? "" },
   });
 
-  function handlePhoneChange(normalized: string) {
-    setNormalizedPhone(normalized);
-    setValue("phoneNumber", normalized, { shouldValidate: false });
-  }
-
-  async function onSubmit(data: PhoneFormData) {
-    const parsed = PhoneNumber.create(data.phoneNumber);
-    if (!parsed.ok) {
-      toast.error(parsed.error);
-      return;
-    }
-
+  async function onSubmit(data: LoginFormData) {
     setLoading(true);
     try {
-      const { userId } = await authService.sendOtp(parsed.value.value);
-      sessionStorage.setItem("sk_otp_userId", userId);
-      sessionStorage.setItem("sk_otp_phone", parsed.value.value);
-      router.push("/verify-otp");
+      const { accessToken, refreshToken } = await authService.login(data);
+
+      /* Store tokens in httpOnly cookies via API route */
+      await fetch("/api/auth/set-tokens", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accessToken, refreshToken }),
+      });
+
+      toast.success("Connexion réussie ! Bienvenue sur Soukify 🎉");
+      const from = searchParams.get("from");
+      router.push(from && isSafeInternalPath(from) ? from : "/dashboard");
     } catch (err) {
-      if (err instanceof HttpError) {
-        if (err.statusCode === 404) {
-          /* Account not found → redirect to register */
-          sessionStorage.setItem("sk_reg_phone", parsed.value.value);
-          router.push("/register");
-          return;
-        }
+      if (err instanceof HttpError && err.statusCode === 401) {
+        toast.error("Email ou mot de passe incorrect");
+      } else if (err instanceof HttpError) {
         toast.error(err.message);
       } else {
         toast.error("Impossible de se connecter. Vérifiez votre connexion.");
@@ -68,24 +71,56 @@ export default function LoginPage() {
       {/* Header */}
       <div className="space-y-2">
         <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-primary-100 mb-2">
-          <Phone className="w-6 h-6 text-brand" strokeWidth={2} />
+          <Mail className="w-6 h-6 text-brand" strokeWidth={2} />
         </div>
         <h1 className="text-2xl font-bold text-text-primary">
           Connexion à Soukify
         </h1>
         <p className="text-text-secondary text-sm">
-          Entrez votre numéro de téléphone pour recevoir un code de vérification.
+          Entrez votre email et votre mot de passe pour accéder à votre compte.
         </p>
       </div>
 
       {/* Form */}
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
-        <PhoneInput
-          label="Numéro de téléphone"
-          error={errors.phoneNumber?.message}
-          onChange={handlePhoneChange}
+        <Input
+          type="email"
+          label="Email"
+          placeholder="vous@exemple.com"
+          error={errors.email?.message}
+          autoComplete="email"
           autoFocus
+          {...register("email")}
         />
+
+        <Input
+          type={showPassword ? "text" : "password"}
+          label="Mot de passe"
+          placeholder="••••••••"
+          error={errors.password?.message}
+          autoComplete="current-password"
+          suffix={
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              className="text-text-secondary hover:text-text-primary transition-colors"
+              tabIndex={-1}
+              aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+            >
+              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          }
+          {...register("password")}
+        />
+
+        <div className="flex justify-end -mt-2">
+          <Link
+            href="/forgot-password"
+            className="text-xs font-medium text-brand hover:text-brand-hover transition-colors"
+          >
+            Mot de passe oublié ?
+          </Link>
+        </div>
 
         <Button
           type="submit"
@@ -93,7 +128,7 @@ export default function LoginPage() {
           className="w-full"
           loading={loading}
         >
-          Recevoir le code
+          Se connecter
           {!loading && <ArrowRight className="w-4 h-4" />}
         </Button>
       </form>
@@ -117,16 +152,6 @@ export default function LoginPage() {
           Créer un compte gratuitement
           <ArrowRight className="w-3.5 h-3.5" />
         </Link>
-      </div>
-
-      {/* Info notice */}
-      <div className="rounded-xl bg-primary-50 border border-primary-100 p-4 space-y-1">
-        <p className="text-xs font-semibold text-brand">Comment ça fonctionne ?</p>
-        <ol className="text-xs text-text-secondary space-y-1 list-decimal list-inside">
-          <li>Entrez votre numéro de téléphone Tchadien</li>
-          <li>Recevez un code SMS gratuit</li>
-          <li>Entrez le code pour accéder à votre compte</li>
-        </ol>
       </div>
     </div>
   );

@@ -39,16 +39,20 @@ src/
 ```
 
 ## Appels API
-- Base URL : `process.env.NEXT_PUBLIC_API_URL` (défaut `http://localhost:3020/api/v1`)
+- Base URL : `process.env.NEXT_PUBLIC_API_URL` (défaut `http://localhost:3020/api/v1`, prod `https://api-souk.teamnoble.fr/api/v1`)
 - Header auth : `Authorization: Bearer <accessToken>`
-- Toutes les réponses sont enveloppées : `{ data: ..., success: true }`
-- Erreurs : `{ message: "...", statusCode: 400, success: false }`
+- Succès : enveloppé `{ data: ..., success: true }`
+- Erreurs : `{ message: "...", statusCode: 400, error?: "...", timestamp: "..." }` — **pas** de champ `success: false`, distinguer sur le status HTTP
 
-## Auth flow côté web
-1. `POST /auth/send-otp` avec `phoneNumber`
-2. `POST /auth/verify-otp` avec `userId` + `otpCode` → reçoit `accessToken` + `refreshToken`
-3. Stocker les tokens (httpOnly cookies recommandé)
-4. `POST /auth/refresh` pour renouveler automatiquement
+## Auth flow côté web (email + mot de passe — l'OTP SMS n'est plus le flow principal)
+1. `POST /auth/register` avec `{ email, password, displayName, phoneNumber? }` → pas de connexion automatique
+2. `POST /auth/login` avec `{ email, password }` → reçoit `accessToken` + `refreshToken`
+3. Tokens stockés en cookies `httpOnly`/`secure`/`sameSite=strict` via `src/app/api/auth/set-tokens/route.ts` (l'API ne pose pas de cookie elle-même, c'est ce repo qui le fait)
+4. `POST /auth/refresh` avec `{ refreshToken }` pour renouveler (rotation : l'ancien refresh token est invalidé)
+5. `POST /auth/logout` (authentifié) avec `{ refreshToken }` pour invalider côté serveur, puis purge des cookies locaux
+6. `POST /auth/forgot-password` / `POST /auth/reset-password` pour la réinitialisation (réponse toujours générique, anti-énumération)
+7. Le JWT contient `{ sub: userId, phone, roles }` — `sub`, pas `userId`
+8. `POST /auth/send-otp` / `POST /auth/verify-otp` existent toujours côté API mais servent à une 2FA optionnelle future, pas au flow principal
 
 ## Conventions
 - Server Components par défaut, `"use client"` seulement si interaction utilisateur

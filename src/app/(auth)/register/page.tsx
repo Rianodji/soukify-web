@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { ArrowRight, UserPlus, ArrowLeft } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, UserPlus, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/Button";
@@ -14,13 +14,12 @@ import { PhoneInput } from "@/components/ui/PhoneInput";
 import { registerSchema, type RegisterFormValues } from "@/lib/validations/auth";
 import { authService } from "@/infrastructure/auth/AuthApiAdapter";
 import { HttpError } from "@/infrastructure/http/ApiClient";
-import { PhoneNumber } from "@/domain/auth/PhoneNumber";
 import { cn } from "@/lib/utils";
 
 export default function RegisterPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [phoneNormalized, setPhoneNormalized] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const {
     register,
@@ -35,45 +34,26 @@ export default function RegisterPage() {
 
   const acceptTerms = watch("acceptTerms");
 
-  /* Pre-fill phone if coming from login */
-  useEffect(() => {
-    const stored = sessionStorage.getItem("sk_reg_phone");
-    if (stored) {
-      setPhoneNormalized(stored);
-      setValue("phoneNumber", stored);
-    }
-  }, [setValue]);
-
   function handlePhoneChange(normalized: string) {
-    setPhoneNormalized(normalized);
     setValue("phoneNumber", normalized, { shouldValidate: false });
   }
 
   async function onSubmit(data: RegisterFormValues) {
-    const parsed = PhoneNumber.create(data.phoneNumber);
-    if (!parsed.ok) {
-      toast.error(parsed.error);
-      return;
-    }
-
     setLoading(true);
     try {
       await authService.register({
-        name: data.name.trim(),
-        phoneNumber: parsed.value.value,
+        email: data.email.trim(),
+        password: data.password,
+        displayName: data.displayName.trim(),
+        phoneNumber: data.phoneNumber || undefined,
       });
 
-      const { userId } = await authService.sendOtp(parsed.value.value);
-      sessionStorage.setItem("sk_otp_userId", userId);
-      sessionStorage.setItem("sk_otp_phone", parsed.value.value);
-      sessionStorage.removeItem("sk_reg_phone");
-
-      toast.success("Compte créé ! Un code SMS vous a été envoyé.");
-      router.push("/verify-otp");
+      toast.success("Compte créé ! Vous pouvez maintenant vous connecter.");
+      router.push(`/login?email=${encodeURIComponent(data.email.trim())}`);
     } catch (err) {
       if (err instanceof HttpError) {
         if (err.statusCode === 409) {
-          toast.error("Ce numéro est déjà associé à un compte. Connectez-vous.");
+          toast.error("Cet email est déjà associé à un compte. Connectez-vous.");
           router.push("/login");
         } else {
           toast.error(err.message);
@@ -106,17 +86,45 @@ export default function RegisterPage() {
         <Input
           label="Nom complet"
           placeholder="Ex : Mahamat Oumar"
-          error={errors.name?.message}
+          error={errors.displayName?.message}
           autoComplete="name"
           autoFocus
-          {...register("name")}
+          {...register("displayName")}
+        />
+
+        <Input
+          type="email"
+          label="Email"
+          placeholder="vous@exemple.com"
+          error={errors.email?.message}
+          autoComplete="email"
+          {...register("email")}
+        />
+
+        <Input
+          type={showPassword ? "text" : "password"}
+          label="Mot de passe"
+          placeholder="8 caractères minimum"
+          error={errors.password?.message}
+          autoComplete="new-password"
+          suffix={
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              className="text-text-secondary hover:text-text-primary transition-colors"
+              tabIndex={-1}
+              aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+            >
+              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          }
+          {...register("password")}
         />
 
         <PhoneInput
-          label="Numéro de téléphone"
+          label="Numéro de téléphone (optionnel)"
           error={errors.phoneNumber?.message}
           onChange={handlePhoneChange}
-          defaultValue={phoneNormalized.replace(/^\+235/, "")}
         />
 
         {/* Terms checkbox */}
@@ -190,7 +198,7 @@ export default function RegisterPage() {
       {/* GDPR notice */}
       <div className="rounded-xl bg-primary-50 border border-primary-100 p-3">
         <p className="text-xs text-text-secondary">
-          🔒 Vos données sont protégées. Votre numéro de téléphone ne sera jamais partagé avec des tiers sans votre consentement explicite.
+          🔒 Vos données sont protégées. Votre email et votre numéro de téléphone ne seront jamais partagés avec des tiers sans votre consentement explicite.
         </p>
       </div>
     </div>

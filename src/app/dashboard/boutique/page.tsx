@@ -49,7 +49,7 @@ interface BoutiquePageProps {
 
 export default async function BoutiquePage({ searchParams }: BoutiquePageProps) {
   const session = await getSession();
-  if (!session?.roles.includes("PRO")) redirect("/dashboard");
+  if (!session?.roles.includes("PRO_SELLER")) redirect("/dashboard");
 
   const [sp, shop] = await Promise.all([searchParams, getMyShop()]);
   const tab = sp.tab ?? "apercu";

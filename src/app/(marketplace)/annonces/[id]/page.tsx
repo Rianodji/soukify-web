@@ -176,6 +176,8 @@ export default async function AnnoncePage({ params }: AnnoncePageProps) {
               annonceId={annonce.id}
               sellerId={annonce.seller.id}
               sellerPhone={annonce.seller.phoneNumber}
+              price={annonce.price}
+              city={annonce.city}
               isAuthenticated={isAuthenticated}
               isSeller={isSeller}
             />

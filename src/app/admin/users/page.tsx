@@ -17,7 +17,7 @@ const KYC_CONFIG: Record<KycStatus, { label: string; variant: "success" | "warni
 };
 
 const ROLE_LABELS: Record<string, string> = {
-  BUYER: "Acheteur", SELLER: "Vendeur", PRO: "Pro",
+  BUYER: "Acheteur", SELLER: "Vendeur", PRO_SELLER: "Pro",
   ADMIN: "Admin", ACCOUNT_MANAGER: "AM", SUPPORT: "Support",
   FINANCE: "Finance", SUPER_ADMIN: "SuperAdmin",
 };
@@ -70,8 +70,9 @@ export default async function AdminUsersPage({ searchParams }: UsersPageProps) {
               options: [
                 { value: "BUYER",           label: "Acheteurs" },
                 { value: "SELLER",          label: "Vendeurs" },
-                { value: "PRO",             label: "Vendeurs Pro" },
+                { value: "PRO_SELLER",      label: "Vendeurs Pro" },
                 { value: "ADMIN",           label: "Admins" },
+                { value: "MODERATOR",       label: "Modérateurs" },
                 { value: "SUPPORT",         label: "Support" },
                 { value: "FINANCE",         label: "Finance" },
                 { value: "SUPER_ADMIN",     label: "Super Admins" },
@@ -122,7 +123,7 @@ export default async function AdminUsersPage({ searchParams }: UsersPageProps) {
                   const kyc = KYC_CONFIG[user.kycStatus ?? "NONE"];
                   const primaryRole: UserRole = (
                     user.roles.find((r) => ["SUPER_ADMIN","ADMIN","FINANCE","SUPPORT","ACCOUNT_MANAGER"].includes(r)) ??
-                    user.roles.find((r) => ["PRO","SELLER"].includes(r)) ??
+                    user.roles.find((r) => ["PRO_SELLER","SELLER"].includes(r)) ??
                     "BUYER"
                   );
                   return (

@@ -8,8 +8,10 @@ import type { KycStatus, UserRole } from "@/types/api";
 const ROLES: Array<{ value: UserRole; label: string }> = [
   { value: "BUYER",           label: "Acheteur" },
   { value: "SELLER",          label: "Vendeur" },
-  { value: "PRO",             label: "Vendeur Pro" },
+  { value: "PRO_SELLER",      label: "Vendeur Pro" },
+  { value: "SHOP_STAFF",      label: "Staff boutique" },
   { value: "ADMIN",           label: "Administrateur" },
+  { value: "MODERATOR",       label: "Modérateur" },
   { value: "ACCOUNT_MANAGER", label: "Account Manager" },
   { value: "SUPPORT",         label: "Support" },
   { value: "FINANCE",         label: "Finance" },

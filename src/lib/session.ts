@@ -7,14 +7,21 @@ export interface Session {
   roles: UserRole[];
 }
 
+interface JwtClaims {
+  sub: string;
+  phone?: string;
+  roles: UserRole[];
+  exp: number;
+}
+
 export async function getSession(): Promise<Session | null> {
   const jar = await cookies();
   const token = jar.get("sk_access")?.value;
   if (!token) return null;
   try {
-    const payload = jwtDecode<Session & { exp: number }>(token);
+    const payload = jwtDecode<JwtClaims>(token);
     if (payload.exp && payload.exp * 1000 < Date.now()) return null;
-    return { userId: payload.userId, roles: payload.roles ?? [] };
+    return { userId: payload.sub, roles: payload.roles ?? [] };
   } catch {
     return null;
   }
@@ -30,5 +37,5 @@ export function isAdmin(session: Session | null): boolean {
 }
 
 export function isSeller(session: Session | null): boolean {
-  return hasRole(session, "SELLER", "PRO");
+  return hasRole(session, "SELLER", "PRO_SELLER");
 }

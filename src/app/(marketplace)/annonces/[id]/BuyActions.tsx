@@ -2,18 +2,22 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/Button";
 import { MessageSquare, ShoppingBag, Phone } from "lucide-react";
+import { createConversation, createOrder } from "./actions";
 
 interface BuyActionsProps {
   annonceId: string;
   sellerId: string;
   sellerPhone: string;
+  price: number;
+  city: string;
   isAuthenticated: boolean;
   isSeller: boolean;
 }
 
-export function BuyActions({ annonceId, sellerId, sellerPhone, isAuthenticated, isSeller }: BuyActionsProps) {
+export function BuyActions({ annonceId, sellerId, sellerPhone, price, city, isAuthenticated, isSeller }: BuyActionsProps) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -30,20 +34,10 @@ export function BuyActions({ annonceId, sellerId, sellerPhone, isAuthenticated, 
     setError(null);
     startTransition(async () => {
       try {
-        const res = await fetch("/api/conversations", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sellerId }),
-          credentials: "include",
-        });
-        if (res.ok) {
-          const body = await res.json() as { data: { id: string } };
-          router.push(`/dashboard/messages?conversation=${body.data.id}`);
-        } else {
-          router.push("/dashboard/messages");
-        }
+        const { id } = await createConversation(annonceId, sellerId);
+        router.push(`/dashboard/messages?conversation=${id}`);
       } catch {
-        router.push("/dashboard/messages");
+        toast.error("Impossible de contacter le vendeur. Réessayez.");
       }
     });
   }
@@ -56,21 +50,10 @@ export function BuyActions({ annonceId, sellerId, sellerPhone, isAuthenticated, 
     setError(null);
     startTransition(async () => {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3020/api/v1"}/orders`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ annonceId }),
-          credentials: "include",
-        });
-        if (res.ok) {
-          const body = await res.json() as { data: { id: string } };
-          router.push(`/dashboard/orders/${body.data.id}`);
-        } else {
-          const body = await res.json() as { message?: string };
-          setError(body.message ?? "Une erreur est survenue.");
-        }
-      } catch {
-        setError("Impossible de créer la commande. Réessayez.");
+        const { id } = await createOrder({ annonceId, sellerId, annoncePriceXAF: price, city });
+        router.push(`/dashboard/orders/${id}`);
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : "Une erreur est survenue.");
       }
     });
   }
@@ -116,6 +99,10 @@ export function BuyActions({ annonceId, sellerId, sellerPhone, isAuthenticated, 
         <Phone className="w-4 h-4" />
         Appeler
       </a>
+
+      <p className="text-xs text-text-disabled text-center">
+        Retrait en main propre — livraison à venir
+      </p>
     </div>
   );
 }

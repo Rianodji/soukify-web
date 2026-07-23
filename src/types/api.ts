@@ -7,7 +7,8 @@ export interface ApiSuccess<T> {
 export interface ApiError {
   message: string;
   statusCode: number;
-  success: false;
+  error?: string;
+  timestamp: string;
 }
 
 export type ApiResponse<T> = ApiSuccess<T> | ApiError;
@@ -16,11 +17,13 @@ export type ApiResponse<T> = ApiSuccess<T> | ApiError;
 export type UserRole =
   | "BUYER"
   | "SELLER"
-  | "PRO"
-  | "ADMIN"
-  | "ACCOUNT_MANAGER"
+  | "PRO_SELLER"
+  | "SHOP_STAFF"
+  | "MODERATOR"
   | "SUPPORT"
   | "FINANCE"
+  | "ACCOUNT_MANAGER"
+  | "ADMIN"
   | "SUPER_ADMIN";
 
 export interface AuthTokens {
@@ -28,30 +31,35 @@ export interface AuthTokens {
   refreshToken: string;
 }
 
+export interface LoginPayload {
+  email: string;
+  password: string;
+}
+
+export interface LoginResponse extends AuthTokens {
+  tokenType: string;
+  expiresIn: string;
+}
+
 export interface RegisterPayload {
-  phoneNumber: string;
-  name: string;
+  email: string;
+  password: string;
+  displayName: string;
+  phoneNumber?: string;
 }
 
 export interface RegisterResponse {
   userId: string;
+  message: string;
 }
 
-export interface SendOtpPayload {
-  phoneNumber: string;
+export interface ForgotPasswordPayload {
+  email: string;
 }
 
-export interface SendOtpResponse {
-  userId: string;
-}
-
-export interface VerifyOtpPayload {
-  userId: string;
-  otpCode: string;
-}
-
-export interface VerifyOtpResponse extends AuthTokens {
-  user: UserProfile;
+export interface ResetPasswordPayload {
+  token: string;
+  newPassword: string;
 }
 
 export interface UserProfile {

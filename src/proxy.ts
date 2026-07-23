@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { UserRole } from "@/types/api";
 
 interface JwtPayload {
-  userId: string;
+  sub: string;
   roles: UserRole[];
   exp: number;
 }
@@ -29,7 +29,7 @@ export function proxy(req: NextRequest) {
   const isAuthed = !!payload;
 
   /* ── Redirect authenticated users away from auth pages ── */
-  const authPages = ["/login", "/register", "/verify-otp"];
+  const authPages = ["/login", "/register"];
   if (authPages.includes(pathname) && isAuthed) {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }
@@ -61,7 +61,6 @@ export const config = {
   matcher: [
     "/login",
     "/register",
-    "/verify-otp",
     "/dashboard/:path*",
     "/admin/:path*",
   ],

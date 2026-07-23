@@ -8,7 +8,7 @@ import { formatPhoneDisplay } from "@/lib/utils";
 import type { UserProfile } from "@/types/api";
 
 const ROLE_LABELS: Record<string, string> = {
-  BUYER: "Acheteur", SELLER: "Vendeur", PRO: "Vendeur Pro",
+  BUYER: "Acheteur", SELLER: "Vendeur", PRO_SELLER: "Vendeur Pro",
   ADMIN: "Admin", SUPPORT: "Support", FINANCE: "Finance",
   ACCOUNT_MANAGER: "Account Manager", SUPER_ADMIN: "Super Admin",
 };

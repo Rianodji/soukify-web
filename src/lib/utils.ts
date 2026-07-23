@@ -14,11 +14,15 @@ export function formatPhoneDisplay(phone: string): string {
   return `+235 ${digits.slice(0, 2)} ${digits.slice(2, 4)} ${digits.slice(4, 6)} ${digits.slice(6)}`.trim();
 }
 
-export function maskPhone(phone: string): string {
-  const display = formatPhoneDisplay(phone);
-  return display.replace(/(\+235 \d{2} \d{2}) \d{2} \d{2}/, "$1 ** **");
-}
-
 export function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+/**
+ * True only for a same-site relative path — rejects protocol-relative
+ * (`//evil.com`) and backslash tricks (`/\evil.com`, browsers normalize
+ * `\` to `/`) that `path.startsWith("/")` alone would let through.
+ */
+export function isSafeInternalPath(path: string): boolean {
+  return /^\/(?!\/|\\)/.test(path);
 }

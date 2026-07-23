@@ -50,7 +50,7 @@ export default async function DashboardPage() {
 
   const sellerMode = isSeller(session);
   const adminMode  = isAdmin(session);
-  const isPro      = session.roles.includes("PRO");
+  const isPro      = session.roles.includes("PRO_SELLER");
 
   /* ── Fetch data ─────────────────────────────────────────── */
   const [orders, annonces, shopRes] = await Promise.allSettled([
