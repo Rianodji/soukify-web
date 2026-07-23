@@ -7,7 +7,7 @@ import { Package } from "lucide-react";
 import { AnnonceActions } from "./AnnonceActions";
 import { AdminFilterBar } from "@/components/admin/AdminFilterBar";
 import { AdminPagination } from "@/components/admin/AdminPagination";
-import type { Annonce, SearchPaginatedResponse } from "@/types/api";
+import type { Annonce, PaginatedResponse } from "@/types/api";
 
 const STATUS_CONFIG: Record<string, { label: string; variant: "success" | "warning" | "error" | "neutral" | "default" }> = {
   ACTIVE:  { label: "Active",    variant: "success" },
@@ -38,8 +38,8 @@ export default async function AdminAnnoncesPage({ searchParams }: AnnoncesPagePr
   let total = 0;
 
   try {
-    const res = await serverGet<SearchPaginatedResponse<Annonce>>(`/search/annonces?${qs}`, 0);
-    annonces = res.data;
+    const res = await serverGet<PaginatedResponse<Annonce>>(`/search/annonces?${qs}`, 0);
+    annonces = res.items;
     total = res.total;
   } catch { /* handled below */ }
 

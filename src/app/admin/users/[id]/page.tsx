@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/Badge";
 import { serverGet } from "@/infrastructure/http/ApiServer";
 import { formatPrice, formatPhoneDisplay } from "@/lib/utils";
 import { UserProfileActions } from "./UserProfileActions";
-import type { AdminUser, Annonce, SearchPaginatedResponse, Review, UserScore, KycStatus, UserRole } from "@/types/api";
+import type { AdminUser, Annonce, PaginatedResponse, Review, UserScore, KycStatus, UserRole } from "@/types/api";
 
 const KYC_CONFIG: Record<KycStatus, { label: string; variant: "success" | "warning" | "error" | "neutral" }> = {
   APPROVED: { label: "KYC vérifié",    variant: "success" },
@@ -41,7 +41,7 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
 
   const [user, annoncesRes, reviews, score] = await Promise.all([
     fetchUser(id),
-    serverGet<SearchPaginatedResponse<Annonce>>(`/search/annonces?sellerId=${id}&limit=6`, 0).catch(() => null),
+    serverGet<PaginatedResponse<Annonce>>(`/search/annonces?sellerId=${id}&limit=6`, 0).catch(() => null),
     serverGet<Review[]>(`/users/${id}/reviews`).catch(() => null),
     serverGet<UserScore>(`/users/${id}/score`).catch(() => null),
   ]);
@@ -49,7 +49,7 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
   if (!user) notFound();
 
   const kyc = KYC_CONFIG[user.kycStatus ?? "NONE"];
-  const annonces = annoncesRes?.data ?? [];
+  const annonces = annoncesRes?.items ?? [];
   const isSeller = user.roles.some((r) => ["SELLER", "PRO_SELLER"].includes(r));
 
   const primaryRole: UserRole = (

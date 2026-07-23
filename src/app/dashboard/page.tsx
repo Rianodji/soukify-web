@@ -56,7 +56,7 @@ export default async function DashboardPage() {
   const [orders, annonces, shopRes] = await Promise.allSettled([
     serverGet<PaginatedResponse<Order>>("/orders?limit=5", 0),
     sellerMode ? serverGet<PaginatedResponse<Annonce>>("/users/me/annonces?limit=5&status=ACTIVE", 0) : Promise.resolve(null),
-    isPro ? serverGet<PaginatedResponse<Shop> | Shop>("/pro/shops", 0) : Promise.resolve(null),
+    isPro ? serverGet<{ shops: Shop[] }>("/pro/shops/me", 0) : Promise.resolve(null),
   ]);
 
   const recentOrders = orders.status === "fulfilled" ? orders.value.items : [];
@@ -66,8 +66,7 @@ export default async function DashboardPage() {
 
   let proShop: Shop | null = null;
   if (shopRes.status === "fulfilled" && shopRes.value) {
-    const v = shopRes.value;
-    proShop = "items" in v ? (v.items[0] ?? null) : v;
+    proShop = shopRes.value.shops[0] ?? null;
   }
 
   return (

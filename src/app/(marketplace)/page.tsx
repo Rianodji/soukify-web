@@ -4,7 +4,7 @@ import { SearchBar } from "@/components/features/search/SearchBar";
 import { AnnonceCard, AnnonceCardSkeleton } from "@/components/features/annonces/AnnonceCard";
 import { Button } from "@/components/ui/Button";
 import { CATEGORIES } from "@/lib/constants";
-import type { Annonce, SearchPaginatedResponse } from "@/types/api";
+import type { Annonce, PaginatedResponse } from "@/types/api";
 
 /* ── Server-side data fetching ───────────────────────────── */
 async function getRecentAnnonces(): Promise<Annonce[]> {
@@ -14,8 +14,8 @@ async function getRecentAnnonces(): Promise<Annonce[]> {
       next: { revalidate: 60 },
     });
     if (!res.ok) return [];
-    const body = await res.json() as { data: SearchPaginatedResponse<Annonce> };
-    return body.data?.data ?? [];
+    const body = await res.json() as { data: PaginatedResponse<Annonce> };
+    return body.data?.items ?? [];
   } catch {
     return [];
   }

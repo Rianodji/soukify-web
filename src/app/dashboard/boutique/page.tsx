@@ -37,9 +37,8 @@ const STATUS_VARIANTS: Record<string, "success" | "warning" | "neutral" | "error
 
 async function getMyShop(): Promise<Shop | null> {
   try {
-    const res = await serverGet<PaginatedResponse<Shop> | Shop>("/pro/shops", 0);
-    if ("items" in res) return res.items[0] ?? null;
-    return res as Shop;
+    const res = await serverGet<{ shops: Shop[] }>("/pro/shops/me", 0);
+    return res.shops[0] ?? null;
   } catch { return null; }
 }
 

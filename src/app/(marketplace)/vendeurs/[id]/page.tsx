@@ -4,7 +4,7 @@ import { ChevronLeft, Shield, Star, Calendar, Package } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { formatPhoneDisplay } from "@/lib/utils";
 import { AnnonceCard } from "@/components/features/annonces/AnnonceCard";
-import type { UserProfile, Annonce, SearchPaginatedResponse, Review, UserScore } from "@/types/api";
+import type { UserProfile, Annonce, PaginatedResponse, Review, UserScore } from "@/types/api";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3020/api/v1";
 
@@ -28,14 +28,14 @@ export default async function VendeurPage({ params }: VendeurPageProps) {
 
   const [profile, annoncesRes, reviews, score] = await Promise.all([
     fetchJson<UserProfile>(`${API_BASE}/users/${id}/profile`),
-    fetchJson<SearchPaginatedResponse<Annonce>>(`${API_BASE}/search/annonces?sellerId=${id}&status=ACTIVE&limit=12`),
+    fetchJson<PaginatedResponse<Annonce>>(`${API_BASE}/search/annonces?sellerId=${id}&status=ACTIVE&limit=12`),
     fetchJson<Review[]>(`${API_BASE}/users/${id}/reviews`),
     fetchJson<UserScore>(`${API_BASE}/users/${id}/score`),
   ]);
 
   if (!profile) notFound();
 
-  const annonces = annoncesRes?.data ?? [];
+  const annonces = annoncesRes?.items ?? [];
   const totalAnnonces = annoncesRes?.total ?? 0;
 
   const memberSince = new Date(profile.createdAt).toLocaleDateString("fr-FR", {

@@ -137,33 +137,12 @@ export interface Order {
 }
 
 /* ── Pagination ─────────────────────────────────────────── */
-/**
- * The API is NOT consistent about the array field name across list
- * endpoints (confirmed by reading the backend source directly, not just
- * guessing from one sample) — two different shapes exist:
- *
- * - `items` : CQRS query-handler-backed endpoints — /admin/users,
- *   /admin/shops, /admin/tickets, /admin/reports, /admin/audit, /orders,
- *   /users/me/annonces, /users/me/favorites.
- * - `data`  : catalogue/search controller endpoints — /search/annonces,
- *   /shops/:shopId/annonces. Use `SearchPaginatedResponse<T>` for these.
- *
- * Flagged to the API session in HANDOFF_INFRA.md — worth unifying
- * server-side, but the frontend has to match reality in the meantime.
- */
+/** Standardized shape across every paginated list endpoint (cf. HANDOFF_INFRA.md, v1.0.5). */
 export interface PaginatedResponse<T> {
   items: T[];
   total: number;
   page?: number;
   limit?: number;
-}
-
-/** `/search/annonces` and `/shops/:shopId/annonces` — array field is `data`. */
-export interface SearchPaginatedResponse<T> {
-  data: T[];
-  total: number;
-  page: number;
-  limit: number;
 }
 
 /* ── Admin ──────────────────────────────────────────────── */

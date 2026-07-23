@@ -3,7 +3,7 @@ import { SearchFilters } from "./SearchFilters";
 import { AnnonceCard, AnnonceCardSkeleton } from "@/components/features/annonces/AnnonceCard";
 import { SearchBar } from "@/components/features/search/SearchBar";
 import { Package } from "lucide-react";
-import type { Annonce, SearchPaginatedResponse } from "@/types/api";
+import type { Annonce, PaginatedResponse } from "@/types/api";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3020/api/v1";
 
@@ -24,8 +24,8 @@ async function fetchAnnonces(params: Record<string, string>): Promise<{ items: A
       next: { revalidate: 30 },
     });
     if (!res.ok) return { items: [], total: 0 };
-    const body = await res.json() as { data: SearchPaginatedResponse<Annonce> };
-    return { items: body.data?.data ?? [], total: body.data?.total ?? 0 };
+    const body = await res.json() as { data: PaginatedResponse<Annonce> };
+    return { items: body.data?.items ?? [], total: body.data?.total ?? 0 };
   } catch {
     return { items: [], total: 0 };
   }

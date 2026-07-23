@@ -8,7 +8,7 @@ import {
   ArrowRight, BarChart3, Store, CheckCircle, XCircle,
 } from "lucide-react";
 import type {
-  PaginatedResponse, SearchPaginatedResponse, AdminUser, Ticket, Report,
+  PaginatedResponse, AdminUser, Ticket, Report,
   FinanceDashboard, Shop, AuditEntry, PlatformConfig,
 } from "@/types/api";
 
@@ -643,7 +643,7 @@ async function FullAdminDashboard() {
       .then((r) => { pendingReports = r.total; }),
     serverGet<PaginatedResponse<Shop>>("/admin/shops?status=PENDING&limit=1", 0)
       .then((r) => { pendingShops = r.total; }),
-    serverGet<SearchPaginatedResponse<import("@/types/api").Annonce>>("/search/annonces?status=ACTIVE&limit=1", 0)
+    serverGet<PaginatedResponse<import("@/types/api").Annonce>>("/search/annonces?status=ACTIVE&limit=1", 0)
       .then((r) => { activeAnnonces = r.total; }),
     serverGet<PaginatedResponse<Shop>>("/admin/shops?status=APPROVED&limit=1", 0)
       .then((r) => { approvedShops = r.total; }),
