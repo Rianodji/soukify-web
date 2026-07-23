@@ -1,12 +1,12 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, Package, Shield, Phone, Calendar } from "lucide-react";
+import { ChevronLeft, Package } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { serverGet } from "@/infrastructure/http/ApiServer";
 import { getSession } from "@/lib/session";
-import { formatPrice, formatPhoneDisplay } from "@/lib/utils";
+import { formatPrice } from "@/lib/utils";
 import { OrderActions } from "./OrderActions";
-import type { Order } from "@/types/api";
+import type { Order, Annonce } from "@/types/api";
 
 const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "success" | "warning" | "error" | "neutral" }> = {
   PENDING_PAYMENT: { label: "En attente de paiement", variant: "warning" },
@@ -41,14 +41,17 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
 
   if (!order) notFound();
 
-  const isBuyer  = order.buyer.id === session?.userId;
-  const isSeller = order.seller.id === session?.userId;
+  /* GET /orders/:id doesn't embed the annonce (only annonceId) — fetched
+   * separately. Public endpoint, so a failure here shouldn't block the page. */
+  const annonce = await serverGet<Annonce>(`/annonces/${order.annonceId}`, 0).catch(() => null);
+
+  const isBuyer  = order.buyerId === session?.userId;
+  const isSeller = order.sellerId === session?.userId;
   const status   = STATUS_CONFIG[order.status] ?? { label: order.status, variant: "neutral" as const };
 
   const currentStepIndex = STEP_ORDER.indexOf(order.status);
   const isTerminal = ["CANCELLED", "DISPUTED"].includes(order.status);
 
-  const otherParty = isBuyer ? order.seller : order.buyer;
   const otherLabel = isBuyer ? "Vendeur" : "Acheteur";
 
   return (
@@ -64,7 +67,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
           <div>
             <p className="text-xs text-text-disabled font-mono">#{order.id.slice(0, 16).toUpperCase()}</p>
             <h1 className="text-lg font-bold text-text-primary mt-0.5">
-              {order.annonce?.title ?? "Commande"}
+              {annonce?.title ?? "Commande"}
             </h1>
             <p className="text-xs text-text-secondary mt-1">
               Passée le {new Date(order.createdAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}
@@ -123,19 +126,19 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
           {/* Annonce */}
           <div className="bg-white rounded-2xl border border-border p-5 flex items-start gap-4">
             <div className="w-16 h-16 rounded-xl bg-primary-50 overflow-hidden shrink-0 flex items-center justify-center">
-              {order.annonce?.images?.[0]
+              {annonce?.images?.[0]
                 // eslint-disable-next-line @next/next/no-img-element
-                ? <img src={order.annonce.images[0]} alt="" className="w-full h-full object-cover" />
+                ? <img src={annonce.images[0]} alt="" className="w-full h-full object-cover" />
                 : <Package className="w-8 h-8 text-primary-300" />
               }
             </div>
             <div className="flex-1 min-w-0 space-y-1">
-              <p className="font-semibold text-text-primary">{order.annonce?.title ?? "—"}</p>
-              <p className="text-sm text-text-secondary">{order.annonce?.city ?? ""}</p>
-              {order.annonce?.id && (
-                <Link href={`/annonces/${order.annonce.id}`} target="_blank"
+              <p className="font-semibold text-text-primary">{annonce?.title ?? "—"}</p>
+              <p className="text-sm text-text-secondary">{annonce?.city ?? order.city}</p>
+              {annonce?.id && (
+                <Link href={`/annonces/${annonce.id}`} target="_blank"
                   className="text-xs text-brand hover:underline">
-                  Voir l'annonce →
+                  Voir l&apos;annonce →
                 </Link>
               )}
             </div>
@@ -146,9 +149,9 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
             <h2 className="font-semibold text-text-primary text-sm">Détail financier</h2>
             <dl className="space-y-2">
               {[
-                { label: "Montant payé",      value: formatPrice(order.amount),                  highlight: true },
-                { label: "Commission Soukify", value: `− ${formatPrice(order.commission)}`,      dimmed: true },
-                { label: "Net vendeur",        value: formatPrice(order.amount - order.commission), success: true },
+                { label: "Montant payé",      value: formatPrice(order.totalAmountCents / 100),                                        highlight: true },
+                { label: "Commission Soukify", value: `− ${formatPrice(order.commissionCents / 100)}`,                                 dimmed: true },
+                { label: "Net vendeur",        value: formatPrice((order.totalAmountCents - order.commissionCents) / 100), success: true },
               ].map(({ label, value, highlight, dimmed, success }) => (
                 <div key={label} className="flex justify-between text-sm">
                   <span className={dimmed ? "text-text-disabled" : "text-text-secondary"}>{label}</span>
@@ -160,29 +163,15 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
             </dl>
           </div>
 
-          {/* Other party */}
+          {/* Other party — GET /orders/:id only gives buyerId/sellerId, no
+           * name/phone/KYC, so we can only show the role label here. */}
           <div className="bg-white rounded-2xl border border-border p-5 space-y-3">
             <h2 className="font-semibold text-text-primary text-sm">{otherLabel}</h2>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-brand flex items-center justify-center text-white font-bold shrink-0">
-                {otherParty.name?.[0]?.toUpperCase() ?? "?"}
+                {otherLabel[0]}
               </div>
-              <div className="space-y-0.5">
-                <p className="text-sm font-medium text-text-primary">{otherParty.name}</p>
-                <div className="flex items-center gap-1.5 text-xs text-text-secondary">
-                  <Phone className="w-3 h-3" />
-                  <span className="font-mono">{formatPhoneDisplay(otherParty.phoneNumber)}</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-xs text-text-secondary">
-                  <Calendar className="w-3 h-3" />
-                  <span>Membre depuis {new Date(otherParty.createdAt).toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}</span>
-                </div>
-                {otherParty.isKycVerified && (
-                  <span className="flex items-center gap-1 text-xs text-success">
-                    <Shield className="w-3 h-3" /> Identité vérifiée
-                  </span>
-                )}
-              </div>
+              <p className="text-sm font-medium text-text-primary">{otherLabel} de cette commande</p>
             </div>
           </div>
         </div>

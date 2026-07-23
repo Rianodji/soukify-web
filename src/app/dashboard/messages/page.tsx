@@ -1,21 +1,30 @@
 import { serverGet } from "@/infrastructure/http/ApiServer";
+import { getSession } from "@/lib/session";
 import { MessageSquare, ArrowRight } from "lucide-react";
 import Link from "next/link";
-import type { PaginatedResponse } from "@/types/api";
 
+/**
+ * GET /conversations returns a raw array (no pagination wrapper) and doesn't
+ * include the other party's name or a message preview — just ids/status/
+ * timestamps. Rendered with graceful fallbacks below rather than guessing
+ * at fields the API doesn't provide.
+ */
 interface Conversation {
   id: string;
-  otherUser: { id: string; name: string; avatarUrl?: string };
-  lastMessage?: { content: string; createdAt: string };
+  annonceId: string;
+  buyerId: string;
+  sellerId: string;
+  status: string;
+  lastMessageAt: string | null;
   unreadCount: number;
 }
 
 export default async function MessagesPage() {
+  const session = await getSession();
   let conversations: Conversation[] = [];
 
   try {
-    const res = await serverGet<PaginatedResponse<Conversation>>("/conversations?limit=20", 0);
-    conversations = res.data;
+    conversations = await serverGet<Conversation[]>("/conversations?limit=20", 0);
   } catch {
     /* handled below */
   }
@@ -34,37 +43,39 @@ export default async function MessagesPage() {
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-border overflow-hidden divide-y divide-border">
-          {conversations.map((conv) => (
-            <Link
-              key={conv.id}
-              href={`/dashboard/messages/${conv.id}`}
-              className="flex items-center gap-3 px-4 py-4 hover:bg-primary-50 transition-colors"
-            >
-              <div className="w-10 h-10 rounded-full bg-brand flex items-center justify-center text-white font-bold text-sm shrink-0">
-                {conv.otherUser.name[0]?.toUpperCase()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                  <p className={`text-sm font-medium ${conv.unreadCount > 0 ? "text-text-primary" : "text-text-secondary"}`}>
-                    {conv.otherUser.name}
-                  </p>
-                  {conv.lastMessage && (
-                    <span className="text-xs text-text-disabled shrink-0">
-                      {new Date(conv.lastMessage.createdAt).toLocaleDateString("fr-FR")}
-                    </span>
-                  )}
+          {conversations.map((conv) => {
+            const iAmBuyer = conv.buyerId === session?.userId;
+            const label = iAmBuyer ? "Vendeur" : "Acheteur";
+            return (
+              <Link
+                key={conv.id}
+                href={`/dashboard/messages/${conv.id}`}
+                className="flex items-center gap-3 px-4 py-4 hover:bg-primary-50 transition-colors"
+              >
+                <div className="w-10 h-10 rounded-full bg-brand flex items-center justify-center text-white font-bold text-sm shrink-0">
+                  {label[0]}
                 </div>
-                {conv.lastMessage && (
-                  <p className="text-xs text-text-secondary truncate mt-0.5">{conv.lastMessage.content}</p>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <p className={`text-sm font-medium ${conv.unreadCount > 0 ? "text-text-primary" : "text-text-secondary"}`}>
+                      Conversation avec le {label.toLowerCase()}
+                    </p>
+                    {conv.lastMessageAt && (
+                      <span className="text-xs text-text-disabled shrink-0">
+                        {new Date(conv.lastMessageAt).toLocaleDateString("fr-FR")}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-text-secondary truncate mt-0.5">À propos d&apos;une annonce</p>
+                </div>
+                {conv.unreadCount > 0 && (
+                  <span className="w-5 h-5 rounded-full bg-brand text-white text-xs font-bold flex items-center justify-center shrink-0">
+                    {conv.unreadCount}
+                  </span>
                 )}
-              </div>
-              {conv.unreadCount > 0 && (
-                <span className="w-5 h-5 rounded-full bg-brand text-white text-xs font-bold flex items-center justify-center shrink-0">
-                  {conv.unreadCount}
-                </span>
-              )}
-            </Link>
-          ))}
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>

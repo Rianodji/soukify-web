@@ -8,7 +8,7 @@ import {
   ArrowRight, BarChart3, Store, CheckCircle, XCircle,
 } from "lucide-react";
 import type {
-  PaginatedResponse, AdminUser, Ticket, Report,
+  PaginatedResponse, SearchPaginatedResponse, AdminUser, Ticket, Report,
   FinanceDashboard, Shop, AuditEntry, PlatformConfig,
 } from "@/types/api";
 
@@ -59,7 +59,7 @@ async function FinanceDashboardView() {
   await Promise.allSettled([
     serverGet<FinanceDashboard>("/admin/finance/dashboard", 0).then((r) => { finance = r; }),
     serverGet<PlatformConfig>("/admin/config", 0).then((r) => { config = r; }),
-    serverGet<PaginatedResponse<AuditEntry>>("/admin/audit?limit=8", 0).then((r) => { auditEntries = r.data; }),
+    serverGet<PaginatedResponse<AuditEntry>>("/admin/audit?limit=8", 0).then((r) => { auditEntries = r.items; }),
   ]);
 
   const commissionPct = config.commissionRatePct ?? 0;
@@ -237,10 +237,10 @@ async function SupportDashboardView() {
       .then((r) => { pendingReports = r.total; }),
     session?.userId
       ? serverGet<PaginatedResponse<import("@/types/api").Ticket>>(`/admin/tickets?assigneeId=${session.userId}&status=OPEN&limit=6`, 0)
-          .then((r) => { myTickets = r.data; })
+          .then((r) => { myTickets = r.items; })
       : Promise.resolve(),
     serverGet<PaginatedResponse<AuditEntry>>("/admin/audit?limit=8", 0)
-      .then((r) => { auditEntries = r.data; }),
+      .then((r) => { auditEntries = r.items; }),
   ]);
 
   const totalOpen = urgentCount + highCount + mediumCount + lowCount;
@@ -417,7 +417,7 @@ async function AccountManagerDashboardView() {
 
   await Promise.allSettled([
     serverGet<PaginatedResponse<Shop>>("/admin/shops?status=PENDING&limit=6", 0)
-      .then((r) => { pendingShops = r.data; pendingTotal = r.total; }),
+      .then((r) => { pendingShops = r.items; pendingTotal = r.total; }),
     serverGet<PaginatedResponse<Shop>>("/admin/shops?status=APPROVED&limit=1", 0)
       .then((r) => { approvedTotal = r.total; }),
     serverGet<PaginatedResponse<Shop>>("/admin/shops?status=SUSPENDED&limit=1", 0)
@@ -425,9 +425,9 @@ async function AccountManagerDashboardView() {
     serverGet<PaginatedResponse<AdminUser>>("/admin/users?role=PRO_SELLER&limit=1", 0)
       .then((r) => { proUsersTotal = r.total; }),
     serverGet<PaginatedResponse<AdminUser>>("/admin/users?role=PRO_SELLER&limit=6", 0)
-      .then((r) => { recentProUsers = r.data; }),
+      .then((r) => { recentProUsers = r.items; }),
     serverGet<PaginatedResponse<AuditEntry>>("/admin/audit?limit=8", 0)
-      .then((r) => { auditEntries = r.data.filter((e) =>
+      .then((r) => { auditEntries = r.items.filter((e) =>
         e.action.includes("SHOP") || e.action.includes("KYC") || e.action.includes("USER")
       ); }),
   ]);
@@ -643,7 +643,7 @@ async function FullAdminDashboard() {
       .then((r) => { pendingReports = r.total; }),
     serverGet<PaginatedResponse<Shop>>("/admin/shops?status=PENDING&limit=1", 0)
       .then((r) => { pendingShops = r.total; }),
-    serverGet<PaginatedResponse<import("@/types/api").Annonce>>("/search/annonces?status=ACTIVE&limit=1", 0)
+    serverGet<SearchPaginatedResponse<import("@/types/api").Annonce>>("/search/annonces?status=ACTIVE&limit=1", 0)
       .then((r) => { activeAnnonces = r.total; }),
     serverGet<PaginatedResponse<Shop>>("/admin/shops?status=APPROVED&limit=1", 0)
       .then((r) => { approvedShops = r.total; }),
@@ -651,7 +651,7 @@ async function FullAdminDashboard() {
       ? serverGet<FinanceDashboard>("/admin/finance/dashboard", 0).then((r) => { finance = r; })
       : Promise.resolve(),
     serverGet<PaginatedResponse<AuditEntry>>("/admin/audit?limit=10", 0)
-      .then((r) => { auditEntries = r.data; }),
+      .then((r) => { auditEntries = r.items; }),
   ]);
 
   const urgentItems = [

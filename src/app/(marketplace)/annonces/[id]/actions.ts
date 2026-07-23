@@ -1,11 +1,10 @@
 "use server";
 
 import { serverPost } from "@/infrastructure/http/ApiServer";
-import type { Conversation } from "@/types/api";
 
 export async function createConversation(annonceId: string, sellerId: string): Promise<{ id: string }> {
-  const conversation = await serverPost<Conversation>("/conversations", { annonceId, sellerId });
-  return { id: conversation.id };
+  const { conversationId } = await serverPost<{ conversationId: string }>("/conversations", { annonceId, sellerId });
+  return { id: conversationId };
 }
 
 interface CreateOrderInput {

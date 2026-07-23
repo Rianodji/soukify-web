@@ -22,7 +22,7 @@ export default async function OrdersPage() {
 
   try {
     const res = await serverGet<PaginatedResponse<Order>>("/orders?limit=20", 0);
-    orders = res.data;
+    orders = res.items;
     total = res.total;
   } catch {
     /* handled below */
@@ -58,10 +58,10 @@ export default async function OrdersPage() {
                 <div className="w-12 h-12 rounded-xl bg-primary-50 flex items-center justify-center text-xl shrink-0">📦</div>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-text-primary truncate">
-                    {order.annonce?.title ?? "Commande #" + order.id.slice(0, 8)}
+                    {order.annonceTitle ?? "Commande #" + order.id.slice(0, 8)}
                   </p>
                   <div className="flex items-center gap-3 mt-1">
-                    <span className="text-sm font-bold text-brand">{formatPrice(order.amount)}</span>
+                    <span className="text-sm font-bold text-brand">{formatPrice(order.totalAmountCents / 100)}</span>
                     <span className="text-xs text-text-secondary">
                       {new Date(order.createdAt).toLocaleDateString("fr-FR")}
                     </span>

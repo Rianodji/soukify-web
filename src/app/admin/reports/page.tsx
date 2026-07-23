@@ -43,7 +43,7 @@ export default async function AdminReportsPage({ searchParams }: ReportsPageProp
 
   try {
     const res = await serverGet<PaginatedResponse<Report>>(`/admin/reports?${qs}`, 0);
-    reports = res.data;
+    reports = res.items;
     total = res.total;
   } catch { /* handled below */ }
 

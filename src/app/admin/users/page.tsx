@@ -46,7 +46,7 @@ export default async function AdminUsersPage({ searchParams }: UsersPageProps) {
 
   try {
     const res = await serverGet<PaginatedResponse<AdminUser>>(`/admin/users?${qs}`, 0);
-    users = res.data;
+    users = res.items;
     total = res.total;
   } catch { /* handled below */ }
 

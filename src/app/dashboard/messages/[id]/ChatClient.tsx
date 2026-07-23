@@ -9,6 +9,7 @@ interface ChatClientProps {
   conversationId: string;
   initialMessages: Message[];
   currentUserId: string;
+  otherPartyLabel: string;
 }
 
 function formatTime(dateStr: string): string {
@@ -20,7 +21,7 @@ function formatTime(dateStr: string): string {
   return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
 }
 
-export function ChatClient({ conversationId, initialMessages, currentUserId }: ChatClientProps) {
+export function ChatClient({ conversationId, initialMessages, currentUserId, otherPartyLabel }: ChatClientProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const [content, setContent] = useState("");
   const [pending, startTransition] = useTransition();
@@ -53,24 +54,24 @@ export function ChatClient({ conversationId, initialMessages, currentUserId }: C
         )}
 
         {initialMessages.map((msg, i) => {
-          const isMe = msg.sender.id === currentUserId;
+          const isMe = msg.senderId === currentUserId;
           const prevMsg = initialMessages[i - 1];
           const showDayDivider = !prevMsg ||
-            new Date(msg.createdAt).toDateString() !== new Date(prevMsg.createdAt).toDateString();
+            new Date(msg.sentAt).toDateString() !== new Date(prevMsg.sentAt).toDateString();
 
           return (
             <div key={msg.id}>
               {showDayDivider && i > 0 && (
                 <div className="flex items-center justify-center py-2">
                   <span className="text-xs text-text-disabled">
-                    {new Date(msg.createdAt).toLocaleDateString("fr-FR", { weekday: "long", day: "2-digit", month: "long" })}
+                    {new Date(msg.sentAt).toLocaleDateString("fr-FR", { weekday: "long", day: "2-digit", month: "long" })}
                   </span>
                 </div>
               )}
               <div className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
                 <div className={`max-w-[75%] flex flex-col ${isMe ? "items-end" : "items-start"}`}>
                   {!isMe && (
-                    <p className="text-[10px] text-text-disabled px-1 mb-0.5">{msg.sender.name}</p>
+                    <p className="text-[10px] text-text-disabled px-1 mb-0.5">{otherPartyLabel}</p>
                   )}
                   <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-words ${
                     isMe
@@ -79,7 +80,7 @@ export function ChatClient({ conversationId, initialMessages, currentUserId }: C
                   }`}>
                     {msg.content}
                   </div>
-                  <p className="text-[10px] text-text-disabled px-1 mt-0.5">{formatTime(msg.createdAt)}</p>
+                  <p className="text-[10px] text-text-disabled px-1 mt-0.5">{formatTime(msg.sentAt)}</p>
                 </div>
               </div>
             </div>

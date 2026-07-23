@@ -27,7 +27,7 @@ export default async function AnnoncesPage() {
   let total = 0;
   try {
     const res = await serverGet<PaginatedResponse<Annonce>>("/users/me/annonces?limit=20", 0);
-    annonces = res.data;
+    annonces = res.items;
     total = res.total;
   } catch {
     /* handled below */

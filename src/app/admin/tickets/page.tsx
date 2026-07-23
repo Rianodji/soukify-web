@@ -45,7 +45,7 @@ export default async function AdminTicketsPage({ searchParams }: TicketsPageProp
 
   try {
     const res = await serverGet<PaginatedResponse<TicketType>>(`/admin/tickets?${qs}`, 0);
-    tickets = res.data;
+    tickets = res.items;
     total = res.total;
   } catch { /* handled below */ }
 

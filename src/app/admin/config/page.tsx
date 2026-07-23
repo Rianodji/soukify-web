@@ -27,7 +27,7 @@ export default async function AdminConfigPage() {
         fetchError = e instanceof Error ? e.message : "Impossible de charger la configuration.";
       }),
     serverGet<PaginatedResponse<AuditEntry>>("/admin/audit?action=CONFIG_UPDATED&limit=5", 0)
-      .then((r) => { configHistory = r.data; }),
+      .then((r) => { configHistory = r.items; }),
   ]);
 
   return (

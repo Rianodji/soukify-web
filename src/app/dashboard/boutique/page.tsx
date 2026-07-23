@@ -38,7 +38,7 @@ const STATUS_VARIANTS: Record<string, "success" | "warning" | "neutral" | "error
 async function getMyShop(): Promise<Shop | null> {
   try {
     const res = await serverGet<PaginatedResponse<Shop> | Shop>("/pro/shops", 0);
-    if ("data" in res) return res.data[0] ?? null;
+    if ("items" in res) return res.items[0] ?? null;
     return res as Shop;
   } catch { return null; }
 }
@@ -133,7 +133,7 @@ export default async function BoutiquePage({ searchParams }: BoutiquePageProps) 
   ]);
 
   const members = shop.staff ?? [];
-  const annonces = annoncesRes?.data ?? [];
+  const annonces = annoncesRes?.items ?? [];
   const annoncesTotal = annoncesRes?.total ?? 0;
 
   const isStandardPlus = shop.subscription === "STANDARD" || shop.subscription === "PREMIUM";

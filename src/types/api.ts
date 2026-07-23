@@ -112,26 +112,54 @@ export type OrderStatus =
   | "CANCELLED"
   | "DISPUTED";
 
+/**
+ * Flat shape confirmed against the API source (transaction.controller.ts) —
+ * no nested `annonce`/`buyer`/`seller` objects, just ids. `annonceTitle` is
+ * only present on the list endpoint (`GET /orders`), not the detail one
+ * (`GET /orders/:id`). All money fields are in cents (XAF has no smaller
+ * unit — the API still stores amountInFCFA * 100 internally, cf. Money VO).
+ */
 export interface Order {
   id: string;
-  annonce: Annonce;
-  buyer: UserProfile;
-  seller: UserProfile;
-  amount: number;
-  commission: number;
+  annonceId: string;
+  annonceTitle?: string;
+  buyerId: string;
+  sellerId: string;
+  annoncePriceCents: number;
+  deliveryFeeCents: number;
+  commissionCents: number;
+  totalAmountCents: number;
   status: OrderStatus;
+  disputeReason?: string;
+  city: string;
   createdAt: string;
   updatedAt: string;
 }
 
 /* ── Pagination ─────────────────────────────────────────── */
 /**
- * Real shape confirmed against prod (`curl .../search/annonces`,
- * `.../categories`) : `{ data: T[], total, page, limit }` — the array field
- * is `data`, not `items` (previously wrong, silently returned undefined
- * everywhere and crashed every list screen that read `.items.length`).
+ * The API is NOT consistent about the array field name across list
+ * endpoints (confirmed by reading the backend source directly, not just
+ * guessing from one sample) — two different shapes exist:
+ *
+ * - `items` : CQRS query-handler-backed endpoints — /admin/users,
+ *   /admin/shops, /admin/tickets, /admin/reports, /admin/audit, /orders,
+ *   /users/me/annonces, /users/me/favorites.
+ * - `data`  : catalogue/search controller endpoints — /search/annonces,
+ *   /shops/:shopId/annonces. Use `SearchPaginatedResponse<T>` for these.
+ *
+ * Flagged to the API session in HANDOFF_INFRA.md — worth unifying
+ * server-side, but the frontend has to match reality in the meantime.
  */
 export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page?: number;
+  limit?: number;
+}
+
+/** `/search/annonces` and `/shops/:shopId/annonces` — array field is `data`. */
+export interface SearchPaginatedResponse<T> {
   data: T[];
   total: number;
   page: number;
@@ -230,21 +258,24 @@ export interface FinanceDashboard {
 }
 
 /* ── Messaging ──────────────────────────────────────────── */
+/** GET /conversations/:id/messages — array field is `messages`, not `data`/`items`. */
 export interface Message {
   id: string;
-  conversationId: string;
-  sender: UserProfile;
+  senderId: string;
   content: string;
-  createdAt: string;
+  sentAt: string;
+  isRead: boolean;
 }
 
+/** GET /conversations/:id — no embedded participants/annonce, just ids. */
 export interface Conversation {
   id: string;
-  participants: UserProfile[];
-  annonce?: Annonce;
-  lastMessage?: Message;
-  unreadCount: number;
-  createdAt: string;
+  annonceId: string;
+  buyerId: string;
+  sellerId: string;
+  status: string;
+  lastMessageAt: string | null;
+  messageCount: number;
 }
 
 /* ── Audit ──────────────────────────────────────────────── */

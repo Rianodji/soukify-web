@@ -59,15 +59,15 @@ export default async function DashboardPage() {
     isPro ? serverGet<PaginatedResponse<Shop> | Shop>("/pro/shops", 0) : Promise.resolve(null),
   ]);
 
-  const recentOrders = orders.status === "fulfilled" ? orders.value.data : [];
-  const activeAnnonces = annonces.status === "fulfilled" && annonces.value ? annonces.value.data : [];
+  const recentOrders = orders.status === "fulfilled" ? orders.value.items : [];
+  const activeAnnonces = annonces.status === "fulfilled" && annonces.value ? annonces.value.items : [];
   const totalOrders = orders.status === "fulfilled" ? orders.value.total : 0;
   const totalAnnonces = annonces.status === "fulfilled" && annonces.value ? annonces.value.total : 0;
 
   let proShop: Shop | null = null;
   if (shopRes.status === "fulfilled" && shopRes.value) {
     const v = shopRes.value;
-    proShop = "data" in v ? (v.data[0] ?? null) : v;
+    proShop = "items" in v ? (v.items[0] ?? null) : v;
   }
 
   return (
@@ -238,9 +238,9 @@ export default async function DashboardPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-text-primary truncate">
-                          {order.annonce?.title ?? "Commande #" + order.id.slice(0, 8)}
+                          {order.annonceTitle ?? "Commande #" + order.id.slice(0, 8)}
                         </p>
-                        <p className="text-xs text-text-secondary">{formatPrice(order.amount)}</p>
+                        <p className="text-xs text-text-secondary">{formatPrice(order.totalAmountCents / 100)}</p>
                       </div>
                       <Badge variant={status.variant}>{status.label}</Badge>
                     </Link>
