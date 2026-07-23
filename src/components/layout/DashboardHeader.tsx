@@ -1,7 +1,8 @@
 "use client";
 
-import { Menu, Bell, Search } from "lucide-react";
+import { Menu, Search } from "lucide-react";
 import Link from "next/link";
+import { NotificationsButton } from "./NotificationsButton";
 
 interface DashboardHeaderProps {
   title: string;
@@ -34,14 +35,7 @@ export function DashboardHeader({ title, onMenuToggle }: DashboardHeaderProps) {
           Voir les annonces
         </Link>
 
-        <button
-          type="button"
-          aria-label="Notifications"
-          className="relative w-9 h-9 rounded-full border border-border flex items-center justify-center text-text-secondary hover:text-brand hover:border-brand transition-colors"
-        >
-          <Bell className="w-4 h-4" />
-          <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-error border-2 border-white" />
-        </button>
+        <NotificationsButton size="w-9 h-9" />
       </div>
     </header>
   );

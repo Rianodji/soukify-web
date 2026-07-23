@@ -1,17 +1,44 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { PlusCircle, Bell, Menu } from "lucide-react";
+import { PlusCircle } from "lucide-react";
 import { SoukifyLogo } from "@/components/ui/SoukifyLogo";
 import { Button } from "@/components/ui/Button";
 import { SearchBar } from "@/components/features/search/SearchBar";
+import { NotificationsButton } from "@/components/layout/NotificationsButton";
+import { MarketplaceMobileMenu } from "@/components/layout/MarketplaceMobileMenu";
 
-async function isAuthenticated() {
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3020/api/v1";
+
+async function getAuthToken() {
   const jar = await cookies();
-  return !!jar.get("sk_access");
+  return jar.get("sk_access")?.value;
+}
+
+/**
+ * Decorative fetch only (avatar initial) — never redirects on failure like
+ * `serverGet` would. A public marketplace page must stay browsable even with
+ * an expired/invalid token; only real authenticated actions should bounce to
+ * /login (cf. `handleUnauthorized` in ApiServer.ts).
+ */
+async function getUserInitial(token: string): Promise<string> {
+  try {
+    const res = await fetch(`${API_BASE}/users/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+      next: { revalidate: 30 },
+    });
+    if (!res.ok) return "?";
+    const body = await res.json();
+    const name: string | undefined = body?.data?.name ?? body?.name;
+    return name?.[0]?.toUpperCase() ?? "?";
+  } catch {
+    return "?";
+  }
 }
 
 export async function MarketplaceHeader() {
-  const authed = await isAuthenticated();
+  const token = await getAuthToken();
+  const authed = !!token;
+  const initial = authed ? await getUserInitial(token!) : "?";
 
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-border shadow-sm">
@@ -39,17 +66,10 @@ export async function MarketplaceHeader() {
 
             {authed ? (
               <>
-                <button
-                  type="button"
-                  aria-label="Notifications"
-                  className="relative w-9 h-9 rounded-full border border-border flex items-center justify-center text-text-secondary hover:text-brand hover:border-brand transition-colors"
-                >
-                  <Bell className="w-4.5 h-4.5" />
-                  <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-error border border-white" />
-                </button>
+                <NotificationsButton />
                 <Link href="/dashboard">
                   <div className="w-9 h-9 rounded-full bg-brand flex items-center justify-center text-white text-sm font-bold cursor-pointer hover:bg-brand-hover transition-colors">
-                    M
+                    {initial}
                   </div>
                 </Link>
               </>
@@ -70,13 +90,7 @@ export async function MarketplaceHeader() {
             )}
 
             {/* Mobile menu trigger */}
-            <button
-              type="button"
-              aria-label="Menu"
-              className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg border border-border text-text-secondary"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
+            <MarketplaceMobileMenu authed={authed} />
           </div>
         </div>
 

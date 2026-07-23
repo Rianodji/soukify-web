@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, unstable_rethrow } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { serverGet } from "@/infrastructure/http/ApiServer";
@@ -15,8 +15,8 @@ export default async function ConversationPage({ params }: ConversationPageProps
 
   const [session, conv, messagesRes] = await Promise.all([
     getSession(),
-    serverGet<Conversation>(`/conversations/${id}`, 0).catch(() => null),
-    serverGet<{ messages: Message[]; total: number }>(`/conversations/${id}/messages?limit=50`, 0).catch(() => null),
+    serverGet<Conversation>(`/conversations/${id}`, 0).catch((e: unknown) => { unstable_rethrow(e); return null; }),
+    serverGet<{ messages: Message[]; total: number }>(`/conversations/${id}/messages?limit=50`, 0).catch((e: unknown) => { unstable_rethrow(e); return null; }),
   ]);
 
   if (!conv) notFound();

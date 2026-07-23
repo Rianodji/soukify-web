@@ -1,7 +1,7 @@
-import { notFound } from "next/navigation";
+import { notFound, unstable_rethrow } from "next/navigation";
 import Link from "next/link";
 import {
-  ChevronLeft, Phone, Calendar, Shield,
+  ChevronLeft, Phone, Mail, Calendar, Shield,
   Package, Star, MapPin, Clock,
 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
@@ -29,7 +29,7 @@ const CONDITION_LABELS: Record<string, string> = {
 
 async function fetchUser(id: string): Promise<AdminUser | null> {
   try { return await serverGet<AdminUser>(`/admin/users/${id}`, 0); }
-  catch { return null; }
+  catch (e) { unstable_rethrow(e); return null; }
 }
 
 interface UserDetailPageProps {
@@ -41,9 +41,9 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
 
   const [user, annoncesRes, reviews, score] = await Promise.all([
     fetchUser(id),
-    serverGet<PaginatedResponse<Annonce>>(`/search/annonces?sellerId=${id}&limit=6`, 0).catch(() => null),
-    serverGet<Review[]>(`/users/${id}/reviews`).catch(() => null),
-    serverGet<UserScore>(`/users/${id}/score`).catch(() => null),
+    serverGet<PaginatedResponse<Annonce>>(`/search/annonces?sellerId=${id}&limit=6`, 0).catch((e: unknown) => { unstable_rethrow(e); return null; }),
+    serverGet<Review[]>(`/users/${id}/reviews`).catch((e: unknown) => { unstable_rethrow(e); return null; }),
+    serverGet<UserScore>(`/users/${id}/score`).catch((e: unknown) => { unstable_rethrow(e); return null; }),
   ]);
 
   if (!user) notFound();
@@ -90,8 +90,17 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
 
             <div className="flex flex-wrap gap-3 text-sm text-text-secondary">
               <span className="flex items-center gap-1.5">
-                <Phone className="w-3.5 h-3.5 text-text-disabled" />
-                <span className="font-mono">{formatPhoneDisplay(user.phoneNumber)}</span>
+                {user.phoneNumber ? (
+                  <>
+                    <Phone className="w-3.5 h-3.5 text-text-disabled" />
+                    <span className="font-mono">{formatPhoneDisplay(user.phoneNumber)}</span>
+                  </>
+                ) : (
+                  <>
+                    <Mail className="w-3.5 h-3.5 text-text-disabled" />
+                    <span>{user.email ?? "—"}</span>
+                  </>
+                )}
               </span>
               <span className="flex items-center gap-1.5">
                 <Calendar className="w-3.5 h-3.5 text-text-disabled" />

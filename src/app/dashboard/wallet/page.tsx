@@ -1,6 +1,6 @@
 import { serverGet } from "@/infrastructure/http/ApiServer";
 import { getSession, isSeller } from "@/lib/session";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { Wallet, ArrowUpRight, ArrowDownLeft, TrendingUp } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
 
@@ -21,7 +21,8 @@ export default async function WalletPage() {
   let wallet: WalletData | null = null;
   try {
     wallet = await serverGet<WalletData>("/wallet", 0);
-  } catch {
+  } catch (e) {
+    unstable_rethrow(e);
     /* handled below */
   }
 

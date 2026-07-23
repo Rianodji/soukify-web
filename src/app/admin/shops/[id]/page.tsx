@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, unstable_rethrow } from "next/navigation";
 import Link from "next/link";
 import {
   ChevronLeft, Store, Shield, Phone, Calendar,
@@ -36,8 +36,9 @@ interface ShopDetailPageProps {
 async function fetchShop(id: string): Promise<Shop | null> {
   try {
     return await serverGet<Shop>(`/admin/shops/${id}`, 0);
-  } catch {
-    try { return await serverGet<Shop>(`/shops/${id}`, 60); } catch { return null; }
+  } catch (e) {
+    unstable_rethrow(e);
+    try { return await serverGet<Shop>(`/shops/${id}`, 60); } catch (e2) { unstable_rethrow(e2); return null; }
   }
 }
 
@@ -46,7 +47,7 @@ export default async function AdminShopDetailPage({ params }: ShopDetailPageProp
 
   const [shop, stats] = await Promise.all([
     fetchShop(id),
-    serverGet<ShopStats>(`/pro/shops/${id}/stats`, 0).catch(() => null),
+    serverGet<ShopStats>(`/pro/shops/${id}/stats`, 0).catch((e: unknown) => { unstable_rethrow(e); return null; }),
   ]);
 
   if (!shop) notFound();

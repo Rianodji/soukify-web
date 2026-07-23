@@ -9,12 +9,13 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
-import { CATEGORIES, CHAD_CITIES, ANNONCE_CONDITIONS } from "@/lib/constants";
+import { CHAD_CITIES, ANNONCE_CONDITIONS, CATEGORY_STYLE, DEFAULT_CATEGORY_STYLE } from "@/lib/constants";
 import { formatPrice } from "@/lib/utils";
 import {
   updateAnnonce, publishAnnonce, renewAnnonce,
   deleteOwnAnnonce, uploadAnnonceImages,
 } from "../../actions";
+import type { Category } from "@/types/api";
 
 const STATUS_LABELS: Record<string, string> = {
   ACTIVE: "Active", DRAFT: "Brouillon", SOLD: "Vendue", EXPIRED: "Expirée", DELETED: "Supprimée",
@@ -35,6 +36,7 @@ export default function AnnonceEditPage({ params }: { params: Promise<{ id: stri
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [annonce, setAnnonce] = useState<AnnonceData | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +52,11 @@ export default function AnnonceEditPage({ params }: { params: Promise<{ id: stri
   const [type, setType] = useState<"SALE" | "SERVICE">("SALE");
 
   useEffect(() => {
+    fetch(`${API_BASE}/categories`)
+      .then((r) => r.json())
+      .then((body) => setCategories(body.data ?? []))
+      .catch(() => { /* fallback to empty list, select will just show the current category id */ });
+
     params.then(({ id }) => {
       setAnnonceId(id);
       fetch(`${API_BASE}/annonces/${id}`, { credentials: "include" })
@@ -231,7 +238,10 @@ export default function AnnonceEditPage({ params }: { params: Promise<{ id: stri
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-text-secondary">Catégorie</label>
             <select value={categoryId} onChange={(e) => { setCategoryId(e.target.value); setSaved(false); }} className={fieldCls}>
-              {CATEGORIES.map((c) => (<option key={c.id} value={c.id}>{c.icon} {c.name}</option>))}
+              {categories.map((c) => {
+                const style = CATEGORY_STYLE[c.slug] ?? DEFAULT_CATEGORY_STYLE;
+                return (<option key={c.id} value={c.id}>{c.icon ?? style.icon} {c.name}</option>);
+              })}
             </select>
           </div>
           <div className="space-y-1.5">

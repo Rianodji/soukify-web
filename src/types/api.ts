@@ -94,12 +94,13 @@ export interface Annonce {
 }
 
 /* ── Category ───────────────────────────────────────────── */
+/** `GET /categories` — raw array, no pagination envelope, no `parentId` (root categories only). */
 export interface Category {
   id: string;
   name: string;
   slug: string;
-  icon?: string;
-  parentId?: string;
+  icon: string | null;
+  subcategories: Array<{ id: string; name: string; slug: string }>;
 }
 
 /* ── Order ──────────────────────────────────────────────── */
@@ -151,6 +152,7 @@ export type KycStatus = "NONE" | "PENDING" | "APPROVED" | "REJECTED";
 export interface AdminUser {
   id: string;
   name: string;
+  email?: string;
   phoneNumber?: string;
   roles: UserRole[];
   isKycVerified: boolean;
@@ -282,4 +284,25 @@ export interface UserScore {
   score: number;
   reviewCount: number;
   positiveCount: number;
+}
+
+/* ── Notifications ──────────────────────────────────────── */
+export type NotificationType =
+  | "ORDER_CREATED" | "ORDER_CONFIRMED" | "ORDER_COMPLETED" | "ORDER_CANCELLED"
+  | "DISPUTE_OPENED" | "SHOP_APPROVED" | "SHOP_REJECTED" | "SHOP_SUSPENDED"
+  | "KYC_APPROVED" | "KYC_REJECTED" | "TICKET_RESOLVED" | "ANNONCE_EXPIRED";
+
+export interface AppNotification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  data: Record<string, string> | null;
+  isRead: boolean;
+  createdAt: string;
+}
+
+/** `GET /notifications` — PaginatedResponse plus an `unreadCount` sibling field. */
+export interface NotificationsResponse extends PaginatedResponse<AppNotification> {
+  unreadCount: number;
 }

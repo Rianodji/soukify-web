@@ -3,7 +3,8 @@ import { ArrowRight, Shield, Smartphone, CheckCircle, TrendingUp, Tag } from "lu
 import { SearchBar } from "@/components/features/search/SearchBar";
 import { AnnonceCard, AnnonceCardSkeleton } from "@/components/features/annonces/AnnonceCard";
 import { Button } from "@/components/ui/Button";
-import { CATEGORIES } from "@/lib/constants";
+import { getCategories } from "@/lib/categories";
+import { CATEGORY_STYLE, DEFAULT_CATEGORY_STYLE } from "@/lib/constants";
 import type { Annonce, PaginatedResponse } from "@/types/api";
 
 /* ── Server-side data fetching ───────────────────────────── */
@@ -82,7 +83,7 @@ const MOCK_ANNONCES: Annonce[] = [
 ];
 
 export default async function HomePage() {
-  const apiAnnonces = await getRecentAnnonces();
+  const [apiAnnonces, categories] = await Promise.all([getRecentAnnonces(), getCategories()]);
   const annonces = apiAnnonces.length > 0 ? apiAnnonces : MOCK_ANNONCES;
   const isLive = apiAnnonces.length > 0;
 
@@ -153,22 +154,25 @@ export default async function HomePage() {
         </div>
 
         <div className="grid grid-cols-4 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-          {CATEGORIES.map((cat) => (
-            <Link
-              key={cat.id}
-              href={`/search?categoryId=${cat.id}`}
-              className="group flex flex-col items-center gap-2 p-3 rounded-2xl border border-border bg-white hover:border-brand hover:shadow-md transition-all duration-200 text-center"
-            >
-              <div
-                className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl ${cat.color} group-hover:scale-110 transition-transform duration-200`}
+          {categories.map((cat) => {
+            const style = CATEGORY_STYLE[cat.slug] ?? DEFAULT_CATEGORY_STYLE;
+            return (
+              <Link
+                key={cat.id}
+                href={`/search?categoryId=${cat.id}`}
+                className="group flex flex-col items-center gap-2 p-3 rounded-2xl border border-border bg-white hover:border-brand hover:shadow-md transition-all duration-200 text-center"
               >
-                {cat.icon}
-              </div>
-              <span className="text-xs font-medium text-text-secondary group-hover:text-brand transition-colors leading-tight">
-                {cat.name}
-              </span>
-            </Link>
-          ))}
+                <div
+                  className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl ${style.color} group-hover:scale-110 transition-transform duration-200`}
+                >
+                  {cat.icon ?? style.icon}
+                </div>
+                <span className="text-xs font-medium text-text-secondary group-hover:text-brand transition-colors leading-tight">
+                  {cat.name}
+                </span>
+              </Link>
+            );
+          })}
         </div>
       </section>
 

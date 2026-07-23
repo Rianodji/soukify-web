@@ -1,3 +1,4 @@
+import { unstable_rethrow } from "next/navigation";
 import { serverGet } from "@/infrastructure/http/ApiServer";
 import { formatPrice } from "@/lib/utils";
 import {
@@ -52,18 +53,16 @@ const AUDIT_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 export default async function AdminFinancePage() {
-  let data: Partial<FinanceDashboard> = {};
-  let config: Partial<PlatformConfig> = {};
-  let auditEntries: AuditEntry[] = [];
-
-  await Promise.allSettled([
-    serverGet<FinanceDashboard>("/admin/finance/dashboard", 0)
-      .then((r) => { data = r; }),
-    serverGet<PlatformConfig>("/admin/config", 0)
-      .then((r) => { config = r; }),
-    serverGet<PaginatedResponse<AuditEntry>>("/admin/audit?limit=20", 0)
-      .then((r) => { auditEntries = r.items; }),
+  const [dataRes, configRes, auditRes] = await Promise.allSettled([
+    serverGet<FinanceDashboard>("/admin/finance/dashboard", 0),
+    serverGet<PlatformConfig>("/admin/config", 0),
+    serverGet<PaginatedResponse<AuditEntry>>("/admin/audit?limit=20", 0),
   ]);
+  for (const r of [dataRes, configRes, auditRes]) if (r.status === "rejected") unstable_rethrow(r.reason);
+
+  const data: Partial<FinanceDashboard> = dataRes.status === "fulfilled" ? dataRes.value : {};
+  const config: Partial<PlatformConfig> = configRes.status === "fulfilled" ? configRes.value : {};
+  const auditEntries: AuditEntry[] = auditRes.status === "fulfilled" ? auditRes.value.items : [];
 
   const gmv = data.totalRevenue ?? 0;
   const totalCommissions = data.totalCommissions ?? 0;

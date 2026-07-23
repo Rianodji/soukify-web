@@ -1,13 +1,25 @@
-export const CATEGORIES = [
-  { id: "phones",      name: "Téléphones",     icon: "📱", color: "bg-blue-50   text-blue-600",   count: null },
-  { id: "electronics", name: "Électronique",   icon: "💻", color: "bg-purple-50 text-purple-600", count: null },
-  { id: "fashion",     name: "Mode",           icon: "👗", color: "bg-pink-50   text-pink-600",   count: null },
-  { id: "vehicles",    name: "Véhicules",      icon: "🚗", color: "bg-red-50    text-red-600",    count: null },
-  { id: "realestate",  name: "Immobilier",     icon: "🏠", color: "bg-amber-50  text-amber-600",  count: null },
-  { id: "home",        name: "Maison",         icon: "🛋️", color: "bg-green-50  text-green-600",  count: null },
-  { id: "services",    name: "Services",       icon: "🔧", color: "bg-teal-50   text-teal-600",   count: null },
-  { id: "food",        name: "Alimentation",   icon: "🌾", color: "bg-yellow-50 text-yellow-600", count: null },
-] as const;
+/**
+ * Purely cosmetic icon/color per category `slug` — `GET /categories` never
+ * seeds a real `icon` (always `null`), so this fills the visual gap without
+ * faking data. Keyed by slug (stable), not id. Falls back to
+ * `DEFAULT_CATEGORY_STYLE` for any slug not listed here.
+ */
+export const CATEGORY_STYLE: Record<string, { icon: string; color: string }> = {
+  telephones:   { icon: "📱", color: "bg-blue-50   text-blue-600" },
+  informatique: { icon: "💻", color: "bg-purple-50 text-purple-600" },
+  electronique: { icon: "📺", color: "bg-indigo-50 text-indigo-600" },
+  vehicules:    { icon: "🚗", color: "bg-red-50    text-red-600" },
+  immobilier:   { icon: "🏠", color: "bg-amber-50  text-amber-600" },
+  mode:         { icon: "👗", color: "bg-pink-50   text-pink-600" },
+  maison:       { icon: "🛋️", color: "bg-green-50  text-green-600" },
+  agriculture:  { icon: "🌾", color: "bg-lime-50   text-lime-700" },
+  services:     { icon: "🔧", color: "bg-teal-50   text-teal-600" },
+  sport:        { icon: "⚽", color: "bg-orange-50 text-orange-600" },
+  alimentation: { icon: "🍚", color: "bg-yellow-50 text-yellow-600" },
+  materiaux:    { icon: "🧱", color: "bg-stone-50  text-stone-600" },
+};
+
+export const DEFAULT_CATEGORY_STYLE = { icon: "🏷️", color: "bg-gray-50 text-gray-600" };
 
 export const CHAD_CITIES = [
   "N'Djamena", "Moundou", "Sarh", "Abéché", "Kélo",

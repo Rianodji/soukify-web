@@ -1,3 +1,4 @@
+import { unstable_rethrow } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { serverGet } from "@/infrastructure/http/ApiServer";
 import { Badge } from "@/components/ui/Badge";
@@ -19,7 +20,7 @@ export default async function ProfilePage() {
 
   try {
     profile = await serverGet<UserProfile>("/users/me", 0);
-  } catch { /* handled below */ }
+  } catch (e) { unstable_rethrow(e); /* handled below */ }
 
   const name      = profile?.name       ?? "Utilisateur";
   const phone     = profile?.phoneNumber ?? "";

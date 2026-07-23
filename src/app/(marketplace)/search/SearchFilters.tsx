@@ -5,9 +5,14 @@ import { useTransition, useState } from "react";
 import { SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
-import { CATEGORIES, CHAD_CITIES, ANNONCE_CONDITIONS } from "@/lib/constants";
+import { CHAD_CITIES, ANNONCE_CONDITIONS, CATEGORY_STYLE, DEFAULT_CATEGORY_STYLE } from "@/lib/constants";
+import type { Category } from "@/types/api";
 
-export function SearchFilters() {
+interface SearchFiltersProps {
+  categories: Category[];
+}
+
+export function SearchFilters({ categories }: SearchFiltersProps) {
   const router = useRouter();
   const sp = useSearchParams();
   const [, startTransition] = useTransition();
@@ -57,22 +62,25 @@ export function SearchFilters() {
           >
             Toutes les catégories
           </button>
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat.id}
-              type="button"
-              onClick={() => update("categoryId", cat.id)}
-              className={cn(
-                "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors text-left",
-                current.categoryId === cat.id
-                  ? "bg-brand text-white font-medium"
-                  : "text-text-secondary hover:bg-primary-50 hover:text-brand"
-              )}
-            >
-              <span>{cat.icon}</span>
-              {cat.name}
-            </button>
-          ))}
+          {categories.map((cat) => {
+            const style = CATEGORY_STYLE[cat.slug] ?? DEFAULT_CATEGORY_STYLE;
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => update("categoryId", cat.id)}
+                className={cn(
+                  "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors text-left",
+                  current.categoryId === cat.id
+                    ? "bg-brand text-white font-medium"
+                    : "text-text-secondary hover:bg-primary-50 hover:text-brand"
+                )}
+              >
+                <span>{cat.icon ?? style.icon}</span>
+                {cat.name}
+              </button>
+            );
+          })}
         </div>
       </div>
 

@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { ArrowRight, Eye, EyeOff, Mail } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Mail, AlertCircle } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/Button";
@@ -37,6 +37,8 @@ function LoginForm() {
     resolver: zodResolver(loginSchema),
     defaultValues: { email: searchParams.get("email") ?? "" },
   });
+
+  const sessionExpired = searchParams.get("reason") === "session_expired";
 
   async function onSubmit(data: LoginFormData) {
     setLoading(true);
@@ -80,6 +82,13 @@ function LoginForm() {
           Entrez votre email et votre mot de passe pour accéder à votre compte.
         </p>
       </div>
+
+      {sessionExpired && (
+        <div className="flex items-start gap-3 p-3 rounded-xl bg-warning-light border border-warning">
+          <AlertCircle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
+          <p className="text-sm text-amber-800">Votre session a expiré ou votre compte n&apos;a plus accès. Reconnectez-vous.</p>
+        </div>
+      )}
 
       {/* Form */}
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">

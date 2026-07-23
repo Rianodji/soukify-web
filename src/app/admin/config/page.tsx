@@ -1,6 +1,6 @@
 import { serverGet } from "@/infrastructure/http/ApiServer";
 import { getSession } from "@/lib/session";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { Settings2, AlertTriangle, Clock } from "lucide-react";
 import { ConfigForm } from "./ConfigForm";
 import type { PlatformConfig, AuditEntry, PaginatedResponse } from "@/types/api";
@@ -16,19 +16,18 @@ export default async function AdminConfigPage() {
   const session = await getSession();
   if (!session?.roles.includes("SUPER_ADMIN")) redirect("/admin");
 
-  let config: PlatformConfig = DEFAULT_CONFIG;
-  let configHistory: AuditEntry[] = [];
-  let fetchError: string | null = null;
-
-  await Promise.allSettled([
-    serverGet<PlatformConfig>("/admin/config", 0)
-      .then((r) => { config = r; })
-      .catch((e: unknown) => {
-        fetchError = e instanceof Error ? e.message : "Impossible de charger la configuration.";
-      }),
-    serverGet<PaginatedResponse<AuditEntry>>("/admin/audit?action=CONFIG_UPDATED&limit=5", 0)
-      .then((r) => { configHistory = r.items; }),
+  const [configRes, historyRes] = await Promise.allSettled([
+    serverGet<PlatformConfig>("/admin/config", 0),
+    serverGet<PaginatedResponse<AuditEntry>>("/admin/audit?action=CONFIG_UPDATED&limit=5", 0),
   ]);
+  if (configRes.status === "rejected") unstable_rethrow(configRes.reason);
+  if (historyRes.status === "rejected") unstable_rethrow(historyRes.reason);
+
+  const config: PlatformConfig = configRes.status === "fulfilled" ? configRes.value : DEFAULT_CONFIG;
+  const configHistory: AuditEntry[] = historyRes.status === "fulfilled" ? historyRes.value.items : [];
+  const fetchError: string | null = configRes.status === "rejected"
+    ? (configRes.reason instanceof Error ? configRes.reason.message : "Impossible de charger la configuration.")
+    : null;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-3xl mx-auto">

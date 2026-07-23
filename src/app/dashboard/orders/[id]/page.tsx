@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, unstable_rethrow } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, Package } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
@@ -36,14 +36,14 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
   const { id } = await params;
   const [session, order] = await Promise.all([
     getSession(),
-    serverGet<Order>(`/orders/${id}`, 0).catch(() => null),
+    serverGet<Order>(`/orders/${id}`, 0).catch((e: unknown) => { unstable_rethrow(e); return null; }),
   ]);
 
   if (!order) notFound();
 
   /* GET /orders/:id doesn't embed the annonce (only annonceId) — fetched
    * separately. Public endpoint, so a failure here shouldn't block the page. */
-  const annonce = await serverGet<Annonce>(`/annonces/${order.annonceId}`, 0).catch(() => null);
+  const annonce = await serverGet<Annonce>(`/annonces/${order.annonceId}`, 0).catch((e: unknown) => { unstable_rethrow(e); return null; });
 
   const isBuyer  = order.buyerId === session?.userId;
   const isSeller = order.sellerId === session?.userId;

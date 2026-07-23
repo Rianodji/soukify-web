@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, unstable_rethrow } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, Clock, Shield, Phone, Calendar, User } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
@@ -44,7 +44,7 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
 
   try {
     ticket = await serverGet<Ticket>(`/admin/tickets/${id}`, 0);
-  } catch { /* handled below */ }
+  } catch (e) { unstable_rethrow(e); /* handled below */ }
 
   if (!ticket) notFound();
 

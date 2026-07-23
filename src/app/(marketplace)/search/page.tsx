@@ -3,6 +3,7 @@ import { SearchFilters } from "./SearchFilters";
 import { AnnonceCard, AnnonceCardSkeleton } from "@/components/features/annonces/AnnonceCard";
 import { SearchBar } from "@/components/features/search/SearchBar";
 import { Package } from "lucide-react";
+import { getCategories } from "@/lib/categories";
 import type { Annonce, PaginatedResponse } from "@/types/api";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3020/api/v1";
@@ -78,7 +79,7 @@ interface SearchPageProps {
 }
 
 export default async function SearchPage({ searchParams }: SearchPageProps) {
-  const params = await searchParams;
+  const [params, categories] = await Promise.all([searchParams, getCategories()]);
   const { q = "", city = "" } = params;
 
   const title = q
@@ -101,7 +102,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       <div className="flex gap-6 items-start">
         {/* Filters (sidebar desktop / drawer mobile) */}
         <Suspense fallback={null}>
-          <SearchFilters />
+          <SearchFilters categories={categories} />
         </Suspense>
 
         {/* Results */}
