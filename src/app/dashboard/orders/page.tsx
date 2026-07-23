@@ -22,7 +22,7 @@ export default async function OrdersPage() {
 
   try {
     const res = await serverGet<PaginatedResponse<Order>>("/orders?limit=20", 0);
-    orders = res.items;
+    orders = res.data;
     total = res.total;
   } catch {
     /* handled below */

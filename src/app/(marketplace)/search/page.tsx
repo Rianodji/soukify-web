@@ -25,7 +25,7 @@ async function fetchAnnonces(params: Record<string, string>): Promise<{ items: A
     });
     if (!res.ok) return { items: [], total: 0 };
     const body = await res.json() as { data: PaginatedResponse<Annonce> };
-    return { items: body.data?.items ?? [], total: body.data?.total ?? 0 };
+    return { items: body.data?.data ?? [], total: body.data?.total ?? 0 };
   } catch {
     return { items: [], total: 0 };
   }

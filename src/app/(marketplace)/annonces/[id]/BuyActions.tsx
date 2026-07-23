@@ -10,7 +10,7 @@ import { createConversation, createOrder } from "./actions";
 interface BuyActionsProps {
   annonceId: string;
   sellerId: string;
-  sellerPhone: string;
+  sellerPhone?: string;
   price: number;
   city: string;
   isAuthenticated: boolean;
@@ -92,13 +92,15 @@ export function BuyActions({ annonceId, sellerId, sellerPhone, price, city, isAu
         Contacter le vendeur
       </Button>
 
-      <a
-        href={`tel:${sellerPhone}`}
-        className="flex items-center justify-center gap-2 w-full h-11 rounded-lg border border-border text-text-secondary hover:border-brand hover:text-brand transition-colors text-sm font-medium"
-      >
-        <Phone className="w-4 h-4" />
-        Appeler
-      </a>
+      {sellerPhone && (
+        <a
+          href={`tel:${sellerPhone}`}
+          className="flex items-center justify-center gap-2 w-full h-11 rounded-lg border border-border text-text-secondary hover:border-brand hover:text-brand transition-colors text-sm font-medium"
+        >
+          <Phone className="w-4 h-4" />
+          Appeler
+        </a>
+      )}
 
       <p className="text-xs text-text-disabled text-center">
         Retrait en main propre — livraison à venir

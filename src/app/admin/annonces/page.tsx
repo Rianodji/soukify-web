@@ -39,7 +39,7 @@ export default async function AdminAnnoncesPage({ searchParams }: AnnoncesPagePr
 
   try {
     const res = await serverGet<PaginatedResponse<Annonce>>(`/search/annonces?${qs}`, 0);
-    annonces = res.items;
+    annonces = res.data;
     total = res.total;
   } catch { /* handled below */ }
 

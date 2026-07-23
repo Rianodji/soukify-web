@@ -62,7 +62,7 @@ export default async function AdminFinancePage() {
     serverGet<PlatformConfig>("/admin/config", 0)
       .then((r) => { config = r; }),
     serverGet<PaginatedResponse<AuditEntry>>("/admin/audit?limit=20", 0)
-      .then((r) => { auditEntries = r.items; }),
+      .then((r) => { auditEntries = r.data; }),
   ]);
 
   const gmv = data.totalRevenue ?? 0;

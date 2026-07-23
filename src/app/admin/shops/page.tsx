@@ -43,7 +43,7 @@ export default async function AdminShopsPage({ searchParams }: ShopsPageProps) {
 
   try {
     const res = await serverGet<PaginatedResponse<Shop>>(`/admin/shops?${qs}`, 0);
-    shops = res.items;
+    shops = res.data;
     total = res.total;
   } catch { /* handled below */ }
 

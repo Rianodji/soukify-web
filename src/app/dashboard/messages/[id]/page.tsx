@@ -22,7 +22,7 @@ export default async function ConversationPage({ params }: ConversationPageProps
   if (!conv) notFound();
   if (!session) notFound();
 
-  const messages = messagesRes?.items ?? [];
+  const messages = messagesRes?.data ?? [];
   const otherUser = conv.participants.find((p) => p.id !== session.userId) ?? conv.participants[0];
 
   return (

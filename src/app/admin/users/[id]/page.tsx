@@ -49,7 +49,7 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
   if (!user) notFound();
 
   const kyc = KYC_CONFIG[user.kycStatus ?? "NONE"];
-  const annonces = annoncesRes?.items ?? [];
+  const annonces = annoncesRes?.data ?? [];
   const isSeller = user.roles.some((r) => ["SELLER", "PRO_SELLER"].includes(r));
 
   const primaryRole: UserRole = (

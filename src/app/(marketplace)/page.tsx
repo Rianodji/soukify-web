@@ -15,7 +15,7 @@ async function getRecentAnnonces(): Promise<Annonce[]> {
     });
     if (!res.ok) return [];
     const body = await res.json() as { data: PaginatedResponse<Annonce> };
-    return body.data?.items ?? [];
+    return body.data?.data ?? [];
   } catch {
     return [];
   }

@@ -35,7 +35,7 @@ export default async function VendeurPage({ params }: VendeurPageProps) {
 
   if (!profile) notFound();
 
-  const annonces = annoncesRes?.items ?? [];
+  const annonces = annoncesRes?.data ?? [];
   const totalAnnonces = annoncesRes?.total ?? 0;
 
   const memberSince = new Date(profile.createdAt).toLocaleDateString("fr-FR", {

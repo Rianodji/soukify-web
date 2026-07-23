@@ -59,15 +59,15 @@ export default async function DashboardPage() {
     isPro ? serverGet<PaginatedResponse<Shop> | Shop>("/pro/shops", 0) : Promise.resolve(null),
   ]);
 
-  const recentOrders = orders.status === "fulfilled" ? orders.value.items : [];
-  const activeAnnonces = annonces.status === "fulfilled" && annonces.value ? annonces.value.items : [];
+  const recentOrders = orders.status === "fulfilled" ? orders.value.data : [];
+  const activeAnnonces = annonces.status === "fulfilled" && annonces.value ? annonces.value.data : [];
   const totalOrders = orders.status === "fulfilled" ? orders.value.total : 0;
   const totalAnnonces = annonces.status === "fulfilled" && annonces.value ? annonces.value.total : 0;
 
   let proShop: Shop | null = null;
   if (shopRes.status === "fulfilled" && shopRes.value) {
     const v = shopRes.value;
-    proShop = "items" in v ? (v.items[0] ?? null) : v;
+    proShop = "data" in v ? (v.data[0] ?? null) : v;
   }
 
   return (

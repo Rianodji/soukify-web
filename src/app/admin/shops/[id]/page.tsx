@@ -147,7 +147,7 @@ export default async function AdminShopDetailPage({ params }: ShopDetailPageProp
                     </span>
                   )}
                   <Link
-                    href={`/admin/users?q=${encodeURIComponent(shop.owner.phoneNumber)}`}
+                    href={`/admin/users?q=${encodeURIComponent(shop.owner.phoneNumber ?? shop.owner.name)}`}
                     className="block text-xs text-brand hover:underline mt-1"
                   >
                     Voir le profil admin →

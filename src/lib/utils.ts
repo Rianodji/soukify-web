@@ -9,7 +9,8 @@ export function formatPrice(amount: number, currency = "XAF"): string {
   return new Intl.NumberFormat("fr-TD", { style: "currency", currency, maximumFractionDigits: 0 }).format(amount);
 }
 
-export function formatPhoneDisplay(phone: string): string {
+export function formatPhoneDisplay(phone: string | null | undefined): string {
+  if (!phone) return "—";
   const digits = phone.replace(/\D/g, "").replace(/^235/, "");
   return `+235 ${digits.slice(0, 2)} ${digits.slice(2, 4)} ${digits.slice(4, 6)} ${digits.slice(6)}`.trim();
 }

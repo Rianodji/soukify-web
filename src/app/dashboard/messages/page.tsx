@@ -15,7 +15,7 @@ export default async function MessagesPage() {
 
   try {
     const res = await serverGet<PaginatedResponse<Conversation>>("/conversations?limit=20", 0);
-    conversations = res.items;
+    conversations = res.data;
   } catch {
     /* handled below */
   }

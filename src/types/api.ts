@@ -65,7 +65,7 @@ export interface ResetPasswordPayload {
 export interface UserProfile {
   id: string;
   name: string;
-  phoneNumber: string;
+  phoneNumber?: string;
   roles: UserRole[];
   avatarUrl?: string;
   isKycVerified: boolean;
@@ -125,12 +125,17 @@ export interface Order {
 }
 
 /* ── Pagination ─────────────────────────────────────────── */
+/**
+ * Real shape confirmed against prod (`curl .../search/annonces`,
+ * `.../categories`) : `{ data: T[], total, page, limit }` — the array field
+ * is `data`, not `items` (previously wrong, silently returned undefined
+ * everywhere and crashed every list screen that read `.items.length`).
+ */
 export interface PaginatedResponse<T> {
-  items: T[];
+  data: T[];
   total: number;
   page: number;
   limit: number;
-  hasNext: boolean;
 }
 
 /* ── Admin ──────────────────────────────────────────────── */
@@ -139,7 +144,7 @@ export type KycStatus = "NONE" | "PENDING" | "APPROVED" | "REJECTED";
 export interface AdminUser {
   id: string;
   name: string;
-  phoneNumber: string;
+  phoneNumber?: string;
   roles: UserRole[];
   isKycVerified: boolean;
   kycStatus: KycStatus;

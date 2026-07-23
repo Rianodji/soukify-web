@@ -169,7 +169,7 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
               </div>
 
               <Link
-                href={`/admin/users?q=${encodeURIComponent(ticket.user.phoneNumber)}`}
+                href={`/admin/users?q=${encodeURIComponent(ticket.user.phoneNumber ?? ticket.user.name)}`}
                 className="block text-center text-xs text-brand hover:underline"
               >
                 Voir le profil admin →
