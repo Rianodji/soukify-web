@@ -2,13 +2,11 @@
 
 import { Suspense } from "react";
 import { Badge } from "@/components/ui/Badge";
-import { Flag, ExternalLink, Shield } from "lucide-react";
+import { Flag, ExternalLink } from "lucide-react";
 import { ReportActions } from "./ReportActions";
 import { AdminPagination } from "@/components/admin/AdminPagination";
-import { formatPhoneDisplay } from "@/lib/utils";
-import { fetchAdminReports } from "../actions";
+import { fetchAdminReports, type AdminReportsData } from "../actions";
 import { usePolledData } from "@/hooks/usePolledData";
-import type { Report, PaginatedResponse } from "@/types/api";
 
 const STATUS_CONFIG: Record<string, { label: string; variant: "warning" | "error" | "neutral" }> = {
   PENDING:   { label: "En attente", variant: "warning" },
@@ -28,7 +26,7 @@ interface ReportsListProps {
   qs: string;
   page: number;
   limit: number;
-  initialData: PaginatedResponse<Report>;
+  initialData: AdminReportsData;
   hasStatusFilter: boolean;
 }
 
@@ -41,6 +39,8 @@ export function ReportsList({ qs, page, limit, initialData, hasStatusFilter }: R
 
   const reports = data?.items ?? [];
   const total = data?.total ?? 0;
+  const reporterProfiles = data?.reporterProfiles ?? {};
+  const annonceTitles = data?.annonceTitles ?? {};
   const pendingCount = !hasStatusFilter ? reports.filter((r) => r.status === "PENDING").length : 0;
 
   return (
@@ -90,21 +90,21 @@ export function ReportsList({ qs, page, limit, initialData, hasStatusFilter }: R
                     )}
 
                     {/* Annonce signalée */}
-                    {(report.annonce || report.annonceId) && (
+                    {report.targetType === "ANNONCE" && report.targetId && (
                       <div className="mt-2 pt-2 border-t border-border">
                         <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide mb-1">Annonce signalée</p>
-                        {report.annonce ? (
+                        {annonceTitles[report.targetId] ? (
                           <a
-                            href={`/annonces/${report.annonceId}`}
+                            href={`/annonces/${report.targetId}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center gap-1.5 text-sm text-brand hover:underline"
                           >
                             <ExternalLink className="w-3.5 h-3.5 shrink-0" />
-                            <span className="truncate">{report.annonce.title}</span>
+                            <span className="truncate">{annonceTitles[report.targetId]}</span>
                           </a>
                         ) : (
-                          <span className="text-sm text-text-disabled font-mono">#{report.annonceId?.slice(0, 12)}</span>
+                          <span className="text-sm text-text-disabled font-mono">#{report.targetId.slice(0, 12)}</span>
                         )}
                       </div>
                     )}
@@ -113,23 +113,18 @@ export function ReportsList({ qs, page, limit, initialData, hasStatusFilter }: R
                   {/* Rapporteur */}
                   <div className="space-y-2">
                     <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide">Rapporteur</p>
-                    {report.reporter ? (
+                    {report.reporterId && reporterProfiles[report.reporterId] ? (
                       <div className="flex items-start gap-2.5">
                         <div className="w-8 h-8 rounded-full bg-brand flex items-center justify-center text-white text-xs font-bold shrink-0">
-                          {report.reporter.name?.[0]?.toUpperCase() ?? "?"}
+                          {reporterProfiles[report.reporterId].displayName?.[0]?.toUpperCase() ?? "?"}
                         </div>
                         <div className="min-w-0 space-y-0.5">
-                          <p className="text-sm font-medium text-text-primary">{report.reporter.name}</p>
-                          <p className="text-xs text-text-secondary font-mono">
-                            {formatPhoneDisplay(report.reporter.phoneNumber)}
+                          <p className="text-sm font-medium text-text-primary">{reporterProfiles[report.reporterId].displayName}</p>
+                          <p className="text-xs text-text-secondary">
+                            Score de confiance : {reporterProfiles[report.reporterId].score}
                           </p>
-                          {report.reporter.isKycVerified && (
-                            <span className="inline-flex items-center gap-1 text-xs text-success">
-                              <Shield className="w-3 h-3" /> KYC vérifié
-                            </span>
-                          )}
                           <p className="text-xs text-text-disabled">
-                            Inscrit le {new Date(report.reporter.createdAt).toLocaleDateString("fr-FR")}
+                            Membre depuis {new Date(reporterProfiles[report.reporterId].memberSince).toLocaleDateString("fr-FR")}
                           </p>
                         </div>
                       </div>

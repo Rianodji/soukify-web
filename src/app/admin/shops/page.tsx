@@ -46,7 +46,7 @@ export default async function AdminShopsPage({ searchParams }: ShopsPageProps) {
               placeholder: "Tous les statuts",
               options: [
                 { value: "PENDING",   label: "En attente" },
-                { value: "APPROVED",  label: "Approuvées" },
+                { value: "ACTIVE",    label: "Approuvées" },
                 { value: "REJECTED",  label: "Rejetées" },
                 { value: "SUSPENDED", label: "Suspendues" },
               ],

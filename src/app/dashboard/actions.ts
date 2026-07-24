@@ -88,28 +88,41 @@ export interface BoutiqueData {
   stats: ShopStats | null;
   annonces: Annonce[];
   annoncesTotal: number;
+  /** `ShopMember` only has `userId` — resolved via the public `GET /users/:id/profile` (no admin rights needed). */
+  memberNames: Record<string, string>;
 }
 
 export async function fetchBoutiqueData(needsAnnonces: boolean, annonceStatus: string): Promise<BoutiqueData> {
   const shopRes = await serverGet<{ shops: Shop[] }>("/pro/shops/me", 0).catch((e: unknown) => { unstable_rethrow(e); return null; });
   const shop = shopRes?.shops[0] ?? null;
 
-  if (!shop || shop.status !== "APPROVED" || !needsAnnonces) {
-    return { shop, stats: null, annonces: [], annoncesTotal: 0 };
+  if (!shop || shop.status !== "ACTIVE") {
+    return { shop, stats: null, annonces: [], annoncesTotal: 0, memberNames: {} };
   }
 
+  const members = shop.members ?? [];
   const results = await Promise.allSettled([
-    serverGet<ShopStats>(`/pro/shops/${shop.id}/stats`, 0),
-    serverGet<PaginatedResponse<Annonce>>(`/users/me/annonces?limit=10${annonceStatus ? `&status=${annonceStatus}` : ""}`, 0),
+    needsAnnonces ? serverGet<ShopStats>(`/pro/shops/${shop.id}/stats`, 0) : Promise.resolve(null),
+    needsAnnonces
+      ? serverGet<PaginatedResponse<Annonce>>(`/users/me/annonces?limit=10${annonceStatus ? `&status=${annonceStatus}` : ""}`, 0)
+      : Promise.resolve(null),
+    ...members.map((m) => serverGet<{ displayName: string }>(`/users/${m.userId}/profile`, 60)),
   ]);
   rethrowIfRedirected(results);
-  const [stats, annoncesRes] = results;
+  const [stats, annoncesRes, ...memberResults] = results;
+
+  const memberNames: Record<string, string> = {};
+  members.forEach((m, i) => {
+    const r = memberResults[i];
+    if (r.status === "fulfilled") memberNames[m.userId] = r.value.displayName;
+  });
 
   return {
     shop,
     stats: stats.status === "fulfilled" ? stats.value : null,
-    annonces: annoncesRes.status === "fulfilled" ? annoncesRes.value.items : [],
-    annoncesTotal: annoncesRes.status === "fulfilled" ? annoncesRes.value.total : 0,
+    annonces: annoncesRes.status === "fulfilled" && annoncesRes.value ? annoncesRes.value.items : [],
+    annoncesTotal: annoncesRes.status === "fulfilled" && annoncesRes.value ? annoncesRes.value.total : 0,
+    memberNames,
   };
 }
 
@@ -243,8 +256,8 @@ export async function markConversationRead(conversationId: string) {
 /* ── Profile ─────────────────────────────────────────────── */
 
 export async function updateUserProfile(data: { name: string }) {
-  /* Contract is asymmetric: GET /users/me returns `name`, but PATCH expects
-   * `displayName` (cf. HANDOFF_INFRA.md) — modeled after the register DTO. */
+  /* PATCH /users/me expects `displayName`, not `name` (cf. HANDOFF_INFRA.md,
+   * confirmed against the DTO — same field GET /users/me returns). */
   await serverPatch("/users/me", { displayName: data.name });
   revalidatePath("/dashboard/profile");
   revalidatePath("/dashboard");

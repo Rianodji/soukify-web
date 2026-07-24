@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { formatPrice } from "@/lib/utils";
+import { getAnnoncePriceXAF, getAnnonceImageUrl } from "@/lib/annonce";
 import { Package, Plus, ArrowRight } from "lucide-react";
 import { fetchMyAnnonces } from "../actions";
 import { usePolledData } from "@/hooks/usePolledData";
@@ -63,15 +64,15 @@ export function AnnoncesList({ initialData }: AnnoncesListProps) {
               className="flex items-center gap-4 p-4 bg-white rounded-2xl border border-border hover:border-brand hover:shadow-sm transition-all"
             >
               <div className="w-14 h-14 rounded-xl bg-primary-50 overflow-hidden shrink-0 flex items-center justify-center text-2xl">
-                {a.images?.[0]
+                {getAnnonceImageUrl(a)
                   // eslint-disable-next-line @next/next/no-img-element
-                  ? <img src={a.images[0]} alt="" className="w-full h-full object-cover" />
+                  ? <img src={getAnnonceImageUrl(a)} alt="" className="w-full h-full object-cover" />
                   : "📦"}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-text-primary truncate">{a.title}</p>
                 <div className="flex items-center gap-3 mt-1">
-                  <span className="text-sm font-bold text-brand">{formatPrice(a.price)}</span>
+                  <span className="text-sm font-bold text-brand">{formatPrice(getAnnoncePriceXAF(a))}</span>
                   <span className="text-xs text-text-secondary">{a.city}</span>
                 </div>
               </div>

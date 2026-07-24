@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, MapPin, Clock, Shield, Star, Package } from "lucide-react";
+import { ChevronLeft, MapPin, Clock, Shield } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { formatPrice } from "@/lib/utils";
 import { ANNONCE_CONDITIONS } from "@/lib/constants";
 import { getSession } from "@/lib/session";
+import { getAnnoncePriceXAF, getAnnonceImageUrl } from "@/lib/annonce";
 import { ImageGallery } from "./ImageGallery";
 import { BuyActions } from "./BuyActions";
 import type { Annonce } from "@/types/api";
@@ -47,8 +48,11 @@ export default async function AnnoncePage({ params }: AnnoncePageProps) {
 
   if (!annonce) notFound();
 
+  const seller = annonce.seller;
   const isAuthenticated = !!session;
-  const isSeller = session?.userId === annonce.seller.id;
+  const isSeller = !!annonce.sellerId && session?.userId === annonce.sellerId;
+  const priceXAF = getAnnoncePriceXAF(annonce);
+  const imageUrl = getAnnonceImageUrl(annonce);
 
   const conditionConfig: Record<string, { variant: "success" | "default" | "warning" | "neutral" | "error" }> = {
     NEW:      { variant: "success" },
@@ -72,8 +76,8 @@ export default async function AnnoncePage({ params }: AnnoncePageProps) {
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-8">
         {/* Left column */}
         <div className="space-y-6">
-          {/* Gallery */}
-          <ImageGallery images={annonce.images} title={annonce.title} />
+          {/* Gallery — API only exposes a single primary image (no image-list endpoint) */}
+          <ImageGallery images={imageUrl ? [imageUrl] : []} title={annonce.title} />
 
           {/* Description */}
           <div className="bg-white rounded-2xl border border-border p-5 space-y-3">
@@ -124,7 +128,7 @@ export default async function AnnoncePage({ params }: AnnoncePageProps) {
                 {annonce.title}
               </h1>
               <p className="text-3xl font-bold text-brand">
-                {formatPrice(annonce.price)}
+                {formatPrice(priceXAF)}
               </p>
             </div>
 
@@ -143,40 +147,34 @@ export default async function AnnoncePage({ params }: AnnoncePageProps) {
             <div className="h-px bg-border" />
 
             {/* Seller */}
-            <Link
-              href={`/vendeurs/${annonce.seller.id}`}
-              className="flex items-center gap-3 group"
-            >
-              <div className="w-11 h-11 rounded-full bg-brand flex items-center justify-center text-white font-bold text-sm shrink-0">
-                {annonce.seller.name[0].toUpperCase()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-text-primary text-sm group-hover:text-brand transition-colors">
-                  {annonce.seller.name}
-                </p>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  {annonce.seller.isKycVerified && (
-                    <span className="flex items-center gap-1 text-xs text-success">
-                      <Shield className="w-3 h-3" />
-                      Identité vérifiée
-                    </span>
-                  )}
-                  {!annonce.seller.isKycVerified && (
-                    <span className="text-xs text-text-disabled">Vendeur particulier</span>
-                  )}
+            {annonce.sellerId && (
+              <Link
+                href={`/vendeurs/${annonce.sellerId}`}
+                className="flex items-center gap-3 group"
+              >
+                <div className="w-11 h-11 rounded-full bg-brand flex items-center justify-center text-white font-bold text-sm shrink-0">
+                  {(seller?.displayName ?? "?")[0]?.toUpperCase() ?? "?"}
                 </div>
-              </div>
-              <Star className="w-4 h-4 text-gold" />
-            </Link>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-text-primary text-sm group-hover:text-brand transition-colors">
+                    {seller?.displayName ?? "Vendeur"}
+                  </p>
+                  <span className="text-xs text-text-disabled">
+                    {seller?.isKYCVerified ? "Identité vérifiée" : "Voir le profil vendeur"}
+                  </span>
+                </div>
+                {seller?.isKYCVerified && <Shield className="w-4 h-4 text-success shrink-0" />}
+              </Link>
+            )}
 
             <div className="h-px bg-border" />
 
             {/* CTA */}
             <BuyActions
               annonceId={annonce.id}
-              sellerId={annonce.seller.id}
-              sellerPhone={annonce.seller.phoneNumber}
-              price={annonce.price}
+              sellerId={annonce.sellerId ?? ""}
+              sellerPhone={undefined}
+              price={priceXAF}
               city={annonce.city}
               isAuthenticated={isAuthenticated}
               isSeller={isSeller}

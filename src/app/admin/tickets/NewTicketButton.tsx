@@ -7,11 +7,9 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { createTicket } from "../actions";
 
-const PRIORITIES = [
-  { value: "LOW",    label: "Faible" },
-  { value: "MEDIUM", label: "Moyen" },
-  { value: "HIGH",   label: "Élevé" },
-  { value: "URGENT", label: "Urgent" },
+const TYPES = [
+  { value: "SUPPORT",  label: "Support" },
+  { value: "DISPUTE",  label: "Litige" },
 ];
 
 export function NewTicketButton() {
@@ -19,7 +17,7 @@ export function NewTicketButton() {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState({ subject: "", description: "", priority: "MEDIUM", userId: "" });
+  const [form, setForm] = useState({ subject: "", description: "", type: "SUPPORT" as "SUPPORT" | "DISPUTE", orderId: "" });
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -30,11 +28,11 @@ export function NewTicketButton() {
         const { id } = await createTicket({
           subject:     form.subject.trim(),
           description: form.description.trim(),
-          priority:    form.priority,
-          userId:      form.userId.trim() || undefined,
+          type:        form.type,
+          orderId:     form.orderId.trim() || undefined,
         });
         setOpen(false);
-        setForm({ subject: "", description: "", priority: "MEDIUM", userId: "" });
+        setForm({ subject: "", description: "", type: "SUPPORT", orderId: "" });
         router.push(`/admin/tickets/${id}`);
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "Une erreur est survenue.");
@@ -95,28 +93,31 @@ export function NewTicketButton() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-text-secondary">Priorité</label>
+                    <label className="text-xs font-medium text-text-secondary">Type</label>
                     <select
-                      value={form.priority}
-                      onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))}
+                      value={form.type}
+                      onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as "SUPPORT" | "DISPUTE" }))}
                       className={fieldCls}
                     >
-                      {PRIORITIES.map((p) => (
-                        <option key={p.value} value={p.value}>{p.label}</option>
+                      {TYPES.map((t) => (
+                        <option key={t.value} value={t.value}>{t.label}</option>
                       ))}
                     </select>
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-text-secondary">ID utilisateur</label>
+                    <label className="text-xs font-medium text-text-secondary">ID commande</label>
                     <input
-                      value={form.userId}
-                      onChange={(e) => setForm((f) => ({ ...f, userId: e.target.value }))}
+                      value={form.orderId}
+                      onChange={(e) => setForm((f) => ({ ...f, orderId: e.target.value }))}
                       placeholder="Optionnel"
                       className={fieldCls}
                     />
                   </div>
                 </div>
+                <p className="text-xs text-text-disabled -mt-2">
+                  Le ticket sera créé en votre nom (l&apos;API ne permet pas de le rattacher à un autre utilisateur).
+                </p>
 
                 <div className="flex gap-3 pt-2">
                   <Button type="button" variant="ghost" size="md" className="flex-1" onClick={() => setOpen(false)}>

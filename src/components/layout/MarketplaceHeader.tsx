@@ -28,7 +28,7 @@ async function getUserInitial(token: string): Promise<string> {
     });
     if (!res.ok) return "?";
     const body = await res.json();
-    const name: string | undefined = body?.data?.name ?? body?.name;
+    const name: string | undefined = body?.data?.displayName ?? body?.displayName;
     return name?.[0]?.toUpperCase() ?? "?";
   } catch {
     return "?";

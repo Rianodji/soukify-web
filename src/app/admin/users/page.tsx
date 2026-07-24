@@ -22,7 +22,7 @@ export default async function AdminUsersPage({ searchParams }: UsersPageProps) {
   if (sp.q)         qs.set("q", sp.q);
   if (sp.role)      qs.set("role", sp.role);
   if (sp.kycStatus) qs.set("kycStatus", sp.kycStatus);
-  if (sp.suspended) qs.set("isSuspended", sp.suspended);
+  if (sp.suspended) qs.set("status", sp.suspended === "true" ? "SUSPENDED" : "ACTIVE");
 
   const qsString = qs.toString();
 
@@ -65,7 +65,7 @@ export default async function AdminUsersPage({ searchParams }: UsersPageProps) {
                 { value: "PENDING",  label: "KYC en attente" },
                 { value: "APPROVED", label: "KYC approuvé" },
                 { value: "REJECTED", label: "KYC rejeté" },
-                { value: "NONE",     label: "Non soumis" },
+                { value: "NOT_SUBMITTED", label: "Non soumis" },
               ],
             },
             {

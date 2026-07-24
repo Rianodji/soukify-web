@@ -4,8 +4,7 @@ import { getSession } from "@/lib/session";
 import { NewTicketButton } from "./NewTicketButton";
 import { AdminFilterBar } from "@/components/admin/AdminFilterBar";
 import { TicketsTable } from "./TicketsTable";
-import { fetchAdminTickets } from "../actions";
-import type { Ticket as TicketType, PaginatedResponse } from "@/types/api";
+import { fetchAdminTickets, type AdminTicketsData } from "../actions";
 
 const LIMIT = 25;
 
@@ -25,7 +24,7 @@ export default async function AdminTicketsPage({ searchParams }: TicketsPageProp
 
   const qsString = qs.toString();
 
-  let initialData: PaginatedResponse<TicketType> = { items: [], total: 0 };
+  let initialData: AdminTicketsData = { items: [], total: 0, userNames: {} };
   try {
     initialData = await fetchAdminTickets(qsString);
   } catch (e) { unstable_rethrow(e); /* TicketsTable handles the empty state */ }
@@ -59,9 +58,7 @@ export default async function AdminTicketsPage({ searchParams }: TicketsPageProp
               placeholder: "Toutes les priorités",
               options: [
                 { value: "URGENT", label: "Urgent" },
-                { value: "HIGH",   label: "Élevé" },
-                { value: "MEDIUM", label: "Moyen" },
-                { value: "LOW",    label: "Faible" },
+                { value: "NORMAL", label: "Normal" },
               ],
             },
           ]}

@@ -1,12 +1,11 @@
 import { notFound, unstable_rethrow } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, Clock, Shield, Phone, Calendar, User } from "lucide-react";
+import { ChevronLeft, Clock, Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
-import { serverGet } from "@/infrastructure/http/ApiServer";
+import { serverGet, ServerApiError } from "@/infrastructure/http/ApiServer";
 import { getSession } from "@/lib/session";
-import { formatPhoneDisplay } from "@/lib/utils";
 import { TicketDetailActions } from "./TicketDetailActions";
-import type { Ticket } from "@/types/api";
+import type { PublicUserProfile, Ticket } from "@/types/api";
 
 const STATUS_CONFIG: Record<string, { label: string; variant: "error" | "warning" | "success" | "neutral" }> = {
   OPEN:        { label: "Ouvert",   variant: "error" },
@@ -15,11 +14,10 @@ const STATUS_CONFIG: Record<string, { label: string; variant: "error" | "warning
   CLOSED:      { label: "Fermé",    variant: "neutral" },
 };
 
-const PRIORITY_CONFIG: Record<string, { label: string; variant: "error" | "warning" | "default" | "neutral" }> = {
+/** Real enum is `NORMAL | URGENT` only (confirmed against domain code, cf. HANDOFF_INFRA.md). */
+const PRIORITY_CONFIG: Record<string, { label: string; variant: "error" | "neutral" }> = {
   URGENT: { label: "Urgent", variant: "error" },
-  HIGH:   { label: "Élevé",  variant: "warning" },
-  MEDIUM: { label: "Moyen",  variant: "default" },
-  LOW:    { label: "Faible", variant: "neutral" },
+  NORMAL: { label: "Normal", variant: "neutral" },
 };
 
 function timeAgo(dateStr: string): string {
@@ -36,22 +34,34 @@ interface TicketDetailPageProps {
   params: Promise<{ id: string }>;
 }
 
+/** `GET /admin/tickets/:id` now exists and returns a clean DTO (added 2026-07-24, cf. HANDOFF_INFRA.md). */
+async function fetchTicket(id: string): Promise<Ticket | null> {
+  try {
+    return await serverGet<Ticket>(`/admin/tickets/${id}`, 0);
+  } catch (e) {
+    unstable_rethrow(e);
+    if (e instanceof ServerApiError && e.statusCode === 404) return null;
+    throw e;
+  }
+}
+
 export default async function TicketDetailPage({ params }: TicketDetailPageProps) {
   const { id } = await params;
 
-  let ticket: Ticket | null = null;
-  const session = await getSession();
-
-  try {
-    ticket = await serverGet<Ticket>(`/admin/tickets/${id}`, 0);
-  } catch (e) { unstable_rethrow(e); /* handled below */ }
+  const [ticket, session] = await Promise.all([fetchTicket(id), getSession()]);
 
   if (!ticket) notFound();
 
+  /* GET /admin/users/:id doesn't exist (cf. HANDOFF_INFRA.md) — use the public profile instead. */
+  const [reporter, assignee] = await Promise.all([
+    ticket.reporterId ? serverGet<PublicUserProfile>(`/users/${ticket.reporterId}/profile`, 60).catch((e: unknown) => { unstable_rethrow(e); return null; }) : Promise.resolve(null),
+    ticket.assigneeId ? serverGet<PublicUserProfile>(`/users/${ticket.assigneeId}/profile`, 60).catch((e: unknown) => { unstable_rethrow(e); return null; }) : Promise.resolve(null),
+  ]);
+
   const status   = STATUS_CONFIG[ticket.status]   ?? { label: ticket.status,   variant: "neutral" as const };
   const priority = PRIORITY_CONFIG[ticket.priority] ?? { label: ticket.priority, variant: "neutral" as const };
-  const isAssignedToMe = ticket.assignee?.id === session?.userId;
-  const isAssigned = !!ticket.assignee;
+  const isAssignedToMe = !!ticket.assigneeId && ticket.assigneeId === session?.userId;
+  const isAssigned = !!ticket.assigneeId;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-6">
@@ -86,17 +96,17 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
         <div className="flex items-center gap-3 text-sm text-text-secondary">
           <span>
             Ouvert par{" "}
-            <span className="font-medium text-text-primary">{ticket.user?.name ?? "—"}</span>
+            <span className="font-medium text-text-primary">{reporter?.displayName ?? "—"}</span>
           </span>
           <span>·</span>
           <span>{new Date(ticket.createdAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}</span>
-          {ticket.assignee && (
+          {isAssigned && (
             <>
               <span>·</span>
               <span>
                 Assigné à{" "}
                 <span className={`font-medium ${isAssignedToMe ? "text-brand" : "text-text-primary"}`}>
-                  {isAssignedToMe ? "vous" : ticket.assignee.name}
+                  {isAssignedToMe ? "vous" : (assignee?.displayName ?? "—")}
                 </span>
               </span>
             </>
@@ -135,41 +145,29 @@ export default async function TicketDetailPage({ params }: TicketDetailPageProps
           </div>
 
           {/* User info */}
-          {ticket.user && (
+          {reporter && (
             <div className="bg-white rounded-2xl border border-border p-5 space-y-4">
               <h2 className="font-semibold text-text-primary text-sm">Utilisateur</h2>
 
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-brand flex items-center justify-center text-white font-bold shrink-0">
-                  {ticket.user.name?.[0]?.toUpperCase() ?? "?"}
+                  {reporter.displayName?.[0]?.toUpperCase() ?? "?"}
                 </div>
                 <div className="min-w-0">
-                  <p className="font-semibold text-text-primary text-sm truncate">{ticket.user.name}</p>
-                  {ticket.user.isKycVerified && (
-                    <span className="flex items-center gap-1 text-xs text-success">
-                      <Shield className="w-3 h-3" /> Identité vérifiée
-                    </span>
-                  )}
+                  <p className="font-semibold text-text-primary text-sm truncate">{reporter.displayName}</p>
+                  <p className="text-xs text-text-secondary">Score de confiance : {reporter.score}</p>
                 </div>
               </div>
 
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-xs text-text-secondary">
-                  <Phone className="w-3.5 h-3.5 text-text-disabled shrink-0" />
-                  <span className="font-mono">{formatPhoneDisplay(ticket.user.phoneNumber)}</span>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-text-secondary">
                   <Calendar className="w-3.5 h-3.5 text-text-disabled shrink-0" />
-                  <span>Inscrit le {new Date(ticket.user.createdAt).toLocaleDateString("fr-FR")}</span>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-text-secondary">
-                  <User className="w-3.5 h-3.5 text-text-disabled shrink-0" />
-                  <span>{ticket.user.roles.join(", ")}</span>
+                  <span>Membre depuis {new Date(reporter.memberSince).toLocaleDateString("fr-FR")}</span>
                 </div>
               </div>
 
               <Link
-                href={`/admin/users?q=${encodeURIComponent(ticket.user.phoneNumber ?? ticket.user.name)}`}
+                href={`/admin/users/${ticket.reporterId}`}
                 className="block text-center text-xs text-brand hover:underline"
               >
                 Voir le profil admin →

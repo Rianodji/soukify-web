@@ -5,7 +5,6 @@ import { UserPlus, Trash2, Shield } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
-import { formatPhoneDisplay } from "@/lib/utils";
 import { addStaffMember, removeStaffMember, changeStaffRole } from "../actions";
 import type { ShopMember, StaffRole } from "@/types/api";
 
@@ -18,9 +17,11 @@ const ROLE_CONFIG: Record<StaffRole, { label: string; variant: "gold" | "default
 interface ShopEquipeProps {
   shopId: string;
   members: ShopMember[];
+  /** `ShopMember` only carries `userId` — resolved display names, keyed by userId. */
+  memberNames: Record<string, string>;
 }
 
-export function ShopEquipe({ shopId, members }: ShopEquipeProps) {
+export function ShopEquipe({ shopId, members, memberNames }: ShopEquipeProps) {
   const [pending, startTransition] = useTransition();
   const [phone, setPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -82,14 +83,14 @@ export function ShopEquipe({ shopId, members }: ShopEquipeProps) {
         ) : (
           members.map((member) => {
             const roleConf = ROLE_CONFIG[member.role];
+            const label = memberNames[member.userId] ?? `Utilisateur #${member.userId.slice(0, 8)}`;
             return (
-              <div key={member.user.id} className="flex items-center gap-3 px-4 py-3">
+              <div key={member.userId} className="flex items-center gap-3 px-4 py-3">
                 <div className="w-9 h-9 rounded-full bg-brand flex items-center justify-center text-white text-sm font-bold shrink-0">
-                  {member.user.name?.[0]?.toUpperCase() ?? "?"}
+                  {label[0]?.toUpperCase() ?? "?"}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-text-primary truncate">{member.user.name}</p>
-                  <p className="text-xs text-text-disabled">{formatPhoneDisplay(member.user.phoneNumber)}</p>
+                  <p className="text-sm font-medium text-text-primary truncate">{label}</p>
                 </div>
                 <Badge variant={roleConf.variant}>{roleConf.label}</Badge>
 
@@ -99,7 +100,7 @@ export function ShopEquipe({ shopId, members }: ShopEquipeProps) {
                       value={member.role}
                       onChange={(e) => {
                         startTransition(() =>
-                          changeStaffRole(shopId, member.user.id, e.target.value as "MANAGER" | "STAFF")
+                          changeStaffRole(shopId, member.userId, e.target.value as "MANAGER" | "STAFF")
                         );
                       }}
                       className="text-xs border border-border rounded-lg px-2 py-1 bg-white text-text-secondary focus:outline-none focus:border-brand"
@@ -109,7 +110,7 @@ export function ShopEquipe({ shopId, members }: ShopEquipeProps) {
                     </select>
                     <button
                       type="button"
-                      onClick={() => startTransition(() => removeStaffMember(shopId, member.user.id))}
+                      onClick={() => startTransition(() => removeStaffMember(shopId, member.userId))}
                       className="w-7 h-7 rounded-lg text-error hover:bg-error-light flex items-center justify-center transition-colors"
                     >
                       <Trash2 className="w-3.5 h-3.5" />

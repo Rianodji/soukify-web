@@ -30,7 +30,7 @@ export function ShopActions({ shopId, status }: ShopActionsProps) {
     );
   }
 
-  if (status === "APPROVED") {
+  if (status === "ACTIVE") {
     return (
       <Button size="sm" variant="secondary" loading={pending}
         onClick={() => startTransition(() => suspendShop(shopId))}

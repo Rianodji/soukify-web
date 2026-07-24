@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/Badge";
 import { serverGet } from "@/infrastructure/http/ApiServer";
 import { getSession } from "@/lib/session";
 import { formatPrice } from "@/lib/utils";
+import { getAnnonceImageUrl } from "@/lib/annonce";
 import { OrderActions } from "./OrderActions";
 import type { Order, Annonce } from "@/types/api";
 
@@ -126,9 +127,9 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
           {/* Annonce */}
           <div className="bg-white rounded-2xl border border-border p-5 flex items-start gap-4">
             <div className="w-16 h-16 rounded-xl bg-primary-50 overflow-hidden shrink-0 flex items-center justify-center">
-              {annonce?.images?.[0]
+              {annonce && getAnnonceImageUrl(annonce)
                 // eslint-disable-next-line @next/next/no-img-element
-                ? <img src={annonce.images[0]} alt="" className="w-full h-full object-cover" />
+                ? <img src={getAnnonceImageUrl(annonce)} alt="" className="w-full h-full object-cover" />
                 : <Package className="w-8 h-8 text-primary-300" />
               }
             </div>

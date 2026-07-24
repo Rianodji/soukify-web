@@ -6,9 +6,8 @@ import { Badge } from "@/components/ui/Badge";
 import { Ticket, ExternalLink } from "lucide-react";
 import { TicketActions } from "./TicketActions";
 import { AdminPagination } from "@/components/admin/AdminPagination";
-import { fetchAdminTickets } from "../actions";
+import { fetchAdminTickets, type AdminTicketsData } from "../actions";
 import { usePolledData } from "@/hooks/usePolledData";
-import type { Ticket as TicketType, PaginatedResponse } from "@/types/api";
 
 const STATUS_CONFIG: Record<string, { label: string; variant: "error" | "warning" | "success" | "neutral" }> = {
   OPEN:        { label: "Ouvert",   variant: "error" },
@@ -17,18 +16,17 @@ const STATUS_CONFIG: Record<string, { label: string; variant: "error" | "warning
   CLOSED:      { label: "Fermé",    variant: "neutral" },
 };
 
-const PRIORITY_CONFIG: Record<string, { label: string; variant: "error" | "warning" | "default" | "neutral" }> = {
+/** Real enum is `NORMAL | URGENT` only (confirmed against domain code, cf. HANDOFF_INFRA.md). */
+const PRIORITY_CONFIG: Record<string, { label: string; variant: "error" | "neutral" }> = {
   URGENT: { label: "Urgent", variant: "error" },
-  HIGH:   { label: "Élevé",  variant: "warning" },
-  MEDIUM: { label: "Moyen",  variant: "default" },
-  LOW:    { label: "Faible", variant: "neutral" },
+  NORMAL: { label: "Normal", variant: "neutral" },
 };
 
 interface TicketsTableProps {
   qs: string;
   page: number;
   limit: number;
-  initialData: PaginatedResponse<TicketType>;
+  initialData: AdminTicketsData;
   currentUserId?: string;
   hasStatusFilter: boolean;
 }
@@ -42,6 +40,7 @@ export function TicketsTable({ qs, page, limit, initialData, currentUserId, hasS
 
   const tickets = data?.items ?? [];
   const total = data?.total ?? 0;
+  const userNames = data?.userNames ?? {};
   const openCount = !hasStatusFilter ? tickets.filter((t) => t.status === "OPEN").length : 0;
 
   return (
@@ -71,7 +70,7 @@ export function TicketsTable({ qs, page, limit, initialData, currentUserId, hasS
                 {tickets.map((ticket) => {
                   const status   = STATUS_CONFIG[ticket.status]     ?? { label: ticket.status,   variant: "neutral" as const };
                   const priority = PRIORITY_CONFIG[ticket.priority] ?? { label: ticket.priority, variant: "neutral" as const };
-                  const isAssignedToMe = ticket.assignee?.id === currentUserId;
+                  const isAssignedToMe = !!ticket.assigneeId && ticket.assigneeId === currentUserId;
                   return (
                     <tr
                       key={ticket.id}
@@ -89,13 +88,13 @@ export function TicketsTable({ qs, page, limit, initialData, currentUserId, hasS
                           )}
                         </Link>
                       </td>
-                      <td className="px-4 py-3 text-text-secondary whitespace-nowrap">{ticket.user?.name ?? "—"}</td>
+                      <td className="px-4 py-3 text-text-secondary whitespace-nowrap">{ticket.reporterId ? (userNames[ticket.reporterId] ?? `#${ticket.reporterId.slice(0, 8)}`) : "—"}</td>
                       <td className="px-4 py-3"><Badge variant={priority.variant}>{priority.label}</Badge></td>
                       <td className="px-4 py-3"><Badge variant={status.variant}>{status.label}</Badge></td>
                       <td className="px-4 py-3 text-xs whitespace-nowrap">
-                        {ticket.assignee ? (
+                        {ticket.assigneeId ? (
                           <span className={isAssignedToMe ? "text-brand font-medium" : "text-text-secondary"}>
-                            {isAssignedToMe ? "Moi" : ticket.assignee.name}
+                            {isAssignedToMe ? "Moi" : (userNames[ticket.assigneeId] ?? `#${ticket.assigneeId.slice(0, 8)}`)}
                           </span>
                         ) : (
                           <span className="italic text-text-disabled">Non assigné</span>
@@ -105,7 +104,7 @@ export function TicketsTable({ qs, page, limit, initialData, currentUserId, hasS
                         {new Date(ticket.createdAt).toLocaleDateString("fr-FR")}
                       </td>
                       <td className="px-4 py-3">
-                        <TicketActions ticketId={ticket.id} status={ticket.status} isAssigned={!!ticket.assignee} />
+                        <TicketActions ticketId={ticket.id} status={ticket.status} isAssigned={!!ticket.assigneeId} />
                       </td>
                     </tr>
                   );

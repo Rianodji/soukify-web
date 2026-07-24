@@ -18,7 +18,7 @@ export default async function BoutiquePage({ searchParams }: BoutiquePageProps) 
   const annonceStatus = sp.status ?? "";
   const needsAnnonces = tab === "annonces" || tab === "apercu";
 
-  let initialData: BoutiqueData = { shop: null, stats: null, annonces: [], annoncesTotal: 0 };
+  let initialData: BoutiqueData = { shop: null, stats: null, annonces: [], annoncesTotal: 0, memberNames: {} };
   try {
     initialData = await fetchBoutiqueData(needsAnnonces, annonceStatus);
   } catch (e) { unstable_rethrow(e); /* BoutiqueView handles the empty state */ }

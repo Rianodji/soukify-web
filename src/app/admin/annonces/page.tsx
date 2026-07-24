@@ -3,7 +3,7 @@ import { unstable_rethrow } from "next/navigation";
 import { AdminFilterBar } from "@/components/admin/AdminFilterBar";
 import { AnnoncesTable } from "./AnnoncesTable";
 import { fetchAdminAnnonces } from "../actions";
-import type { Annonce, PaginatedResponse } from "@/types/api";
+import type { PaginatedResponse, Annonce } from "@/types/api";
 
 const LIMIT = 25;
 

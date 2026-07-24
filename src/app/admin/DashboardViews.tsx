@@ -222,16 +222,14 @@ export function SupportDashboardView({ initialData, currentUserId }: { initialDa
     () => fetchSupportDashboardData(currentUserId),
     initialData,
   );
-  const { urgentCount, highCount, mediumCount, lowCount, pendingReports, myTickets, auditEntries } = data ?? initialData;
+  const { urgentCount, normalCount, pendingReports, myTickets, userNames, auditEntries } = data ?? initialData;
 
-  const totalOpen = urgentCount + highCount + mediumCount + lowCount;
-  const maxCount = Math.max(urgentCount, highCount, mediumCount, lowCount, 1);
+  const totalOpen = urgentCount + normalCount;
+  const maxCount = Math.max(urgentCount, normalCount, 1);
 
   const priorities = [
-    { label: "Urgent",  count: urgentCount, color: "bg-error",   text: "text-error",   badge: "bg-error-light text-error" },
-    { label: "Élevé",   count: highCount,   color: "bg-warning", text: "text-warning", badge: "bg-warning-light text-warning" },
-    { label: "Moyen",   count: mediumCount, color: "bg-info",    text: "text-info",    badge: "bg-info-light text-info" },
-    { label: "Faible",  count: lowCount,    color: "bg-border",  text: "text-text-disabled", badge: "bg-border text-text-secondary" },
+    { label: "Urgent", count: urgentCount, color: "bg-error",  text: "text-error",         badge: "bg-error-light text-error" },
+    { label: "Normal", count: normalCount, color: "bg-border", text: "text-text-disabled", badge: "bg-border text-text-secondary" },
   ];
 
   return (
@@ -331,10 +329,7 @@ export function SupportDashboardView({ initialData, currentUserId }: { initialDa
           ) : (
             <ul className="divide-y divide-border">
               {myTickets.map((ticket) => {
-                const p = priorities.find((pr) => {
-                  const map: Record<string, string> = { URGENT: "Urgent", HIGH: "Élevé", MEDIUM: "Moyen", LOW: "Faible" };
-                  return map[ticket.priority] === pr.label;
-                });
+                const p = priorities.find((pr) => pr.label === (ticket.priority === "URGENT" ? "Urgent" : "Normal"));
                 return (
                   <li key={ticket.id}>
                     <Link
@@ -344,7 +339,7 @@ export function SupportDashboardView({ initialData, currentUserId }: { initialDa
                       <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${p?.color ?? "bg-border"}`} />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-text-primary truncate">{ticket.subject}</p>
-                        <p className="text-xs text-text-secondary mt-0.5">{ticket.user?.name ?? "—"}</p>
+                        <p className="text-xs text-text-secondary mt-0.5">{(ticket.reporterId && userNames[ticket.reporterId]) ?? "—"}</p>
                       </div>
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${p?.badge ?? "bg-border text-text-secondary"}`}>
                         {ticket.priority}
@@ -461,7 +456,7 @@ export function AccountManagerDashboardView({ initialData }: { initialData: Acco
                       {shop.name}
                     </Link>
                     <p className="text-xs text-text-disabled">
-                      {shop.owner?.name ?? "—"} · {new Date(shop.createdAt).toLocaleDateString("fr-FR")}
+                      {shop.city ?? "—"} · {new Date(shop.createdAt).toLocaleDateString("fr-FR")}
                     </p>
                   </div>
                   <Link
@@ -493,12 +488,12 @@ export function AccountManagerDashboardView({ initialData }: { initialData: Acco
               {recentProUsers.map((user) => (
                 <li key={user.id} className="px-5 py-3.5 flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-brand flex items-center justify-center text-white text-xs font-bold shrink-0">
-                    {user.name?.[0]?.toUpperCase() ?? "?"}
+                    {user.displayName?.[0]?.toUpperCase() ?? "?"}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-text-primary truncate">{user.name}</p>
+                    <p className="text-sm font-medium text-text-primary truncate">{user.displayName}</p>
                     <div className="flex items-center gap-1.5 mt-0.5">
-                      {user.isKycVerified ? (
+                      {user.kycStatus === "APPROVED" ? (
                         <span className="text-xs text-success flex items-center gap-0.5">
                           <Shield className="w-3 h-3" /> KYC vérifié
                         </span>
@@ -508,7 +503,7 @@ export function AccountManagerDashboardView({ initialData }: { initialData: Acco
                     </div>
                   </div>
                   <div className="text-right">
-                    {user.isSuspended ? (
+                    {user.status === "SUSPENDED" ? (
                       <span className="text-xs text-error font-medium">Suspendu</span>
                     ) : (
                       <span className="text-xs text-success font-medium">Actif</span>

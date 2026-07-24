@@ -1,8 +1,8 @@
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { serverGet } from "@/infrastructure/http/ApiServer";
 import { DashboardShell } from "./DashboardShell";
-import type { UserProfile } from "@/types/api";
+import type { MyProfile } from "@/types/api";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
@@ -10,9 +10,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   let userName = "Utilisateur";
   try {
-    const profile = await serverGet<UserProfile>("/users/me", 0);
-    userName = profile.name || "Utilisateur";
-  } catch {
+    const profile = await serverGet<MyProfile>("/users/me", 0);
+    userName = profile.displayName || "Utilisateur";
+  } catch (e) {
+    unstable_rethrow(e);
     /* silently degrade — middleware already validated token */
   }
 

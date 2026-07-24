@@ -12,7 +12,7 @@ import type { Shop, PaginatedResponse } from "@/types/api";
 
 const STATUS_CONFIG: Record<string, { label: string; variant: "warning" | "success" | "error" | "neutral" }> = {
   PENDING:   { label: "En attente", variant: "warning" },
-  APPROVED:  { label: "Approuvée",  variant: "success" },
+  ACTIVE:    { label: "Approuvée",  variant: "success" },
   REJECTED:  { label: "Rejetée",    variant: "error" },
   SUSPENDED: { label: "Suspendue",  variant: "error" },
 };
@@ -63,15 +63,15 @@ export function ShopsTable({ qs, page, limit, initialData }: ShopsTableProps) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-background">
-                  {["Boutique", "Propriétaire", "Plan", "Statut", "Créée le", "Actions"].map((h) => (
+                  {["Boutique", "Ville", "Plan", "Statut", "Créée le", "Actions"].map((h) => (
                     <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wide whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {shops.map((shop) => {
-                  const status = STATUS_CONFIG[shop.status] ?? { label: shop.status, variant: "neutral" as const };
-                  const sub    = SUB_CONFIG[shop.subscription] ?? { label: shop.subscription, variant: "neutral" as const };
+                  const status = STATUS_CONFIG[shop.status ?? ""] ?? { label: shop.status ?? "—", variant: "neutral" as const };
+                  const sub    = SUB_CONFIG[shop.plan] ?? { label: shop.plan, variant: "neutral" as const };
                   return (
                     <tr key={shop.id} className={`hover:bg-background transition-colors ${shop.status === "PENDING" ? "bg-warning-light/20" : ""}`}>
                       <td className="px-4 py-3">
@@ -90,14 +90,14 @@ export function ShopsTable({ qs, page, limit, initialData }: ShopsTableProps) {
                           </span>
                         </Link>
                       </td>
-                      <td className="px-4 py-3 text-text-secondary">{shop.owner?.name ?? "—"}</td>
+                      <td className="px-4 py-3 text-text-secondary">{shop.city ?? "—"}</td>
                       <td className="px-4 py-3"><Badge variant={sub.variant}>{sub.label}</Badge></td>
                       <td className="px-4 py-3"><Badge variant={status.variant}>{status.label}</Badge></td>
                       <td className="px-4 py-3 text-text-secondary text-xs whitespace-nowrap">
                         {new Date(shop.createdAt).toLocaleDateString("fr-FR")}
                       </td>
                       <td className="px-4 py-3">
-                        <ShopActions shopId={shop.id} status={shop.status} />
+                        <ShopActions shopId={shop.id} status={shop.status ?? "ACTIVE"} />
                       </td>
                     </tr>
                   );

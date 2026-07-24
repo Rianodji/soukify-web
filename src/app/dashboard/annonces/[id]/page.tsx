@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { CHAD_CITIES, ANNONCE_CONDITIONS, CATEGORY_STYLE, DEFAULT_CATEGORY_STYLE } from "@/lib/constants";
-import { formatPrice } from "@/lib/utils";
 import {
   updateAnnonce, publishAnnonce, renewAnnonce,
   deleteOwnAnnonce, uploadAnnonceImages,
@@ -26,10 +25,15 @@ const STATUS_VARIANTS: Record<string, "success" | "warning" | "neutral" | "error
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3020/api/v1";
 
+/**
+ * `GET /annonces/:id` real shape (confirmed 2026-07-24): `priceXAF`, not
+ * `price`; no `images` array — only `imagesCount` + a single `primaryImageUrl`
+ * (no endpoint exists to list every uploaded image back, cf. HANDOFF_INFRA.md).
+ */
 interface AnnonceData {
-  id: string; title: string; description: string; price: number;
+  id: string; title: string; description: string; priceXAF: number;
   type: "SALE" | "SERVICE"; condition: string; city: string;
-  categoryId: string; status: string; images: string[];
+  categoryId: string; status: string; imagesCount: number; primaryImageUrl?: string;
 }
 
 export default function AnnonceEditPage({ params }: { params: Promise<{ id: string }> }) {
@@ -66,7 +70,7 @@ export default function AnnonceEditPage({ params }: { params: Promise<{ id: stri
           setAnnonce(a);
           setTitle(a.title);
           setDescription(a.description);
-          setPrice(String(a.price));
+          setPrice(String(a.priceXAF));
           setCondition(a.condition);
           setCity(a.city);
           setCategoryId(a.categoryId);
@@ -88,7 +92,7 @@ export default function AnnonceEditPage({ params }: { params: Promise<{ id: stri
           title, description, price: Number(price), condition, city, categoryId,
         });
         setSaved(true);
-        setAnnonce((a) => a ? { ...a, title, description, price: Number(price), condition, city, categoryId } : a);
+        setAnnonce((a) => a ? { ...a, title, description, priceXAF: Number(price), condition, city, categoryId } : a);
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "Une erreur est survenue.");
       }
@@ -103,10 +107,15 @@ export default function AnnonceEditPage({ params }: { params: Promise<{ id: stri
     startTransition(async () => {
       try {
         await uploadAnnonceImages(annonceId, formData);
-        // Refresh annonce images
+        // Refresh annonce (no endpoint returns the full image list — just the primary + count)
         const r = await fetch(`${API_BASE}/annonces/${annonceId}`, { credentials: "include" });
         const body = await r.json();
-        setAnnonce((a) => a ? { ...a, images: body.data?.images ?? a.images } : a);
+        const updated: AnnonceData | undefined = body.data ?? body;
+        setAnnonce((a) => a ? {
+          ...a,
+          imagesCount: updated?.imagesCount ?? a.imagesCount,
+          primaryImageUrl: updated?.primaryImageUrl ?? a.primaryImageUrl,
+        } : a);
       } catch { /* silently fail */ }
     });
   }
@@ -184,15 +193,17 @@ export default function AnnonceEditPage({ params }: { params: Promise<{ id: stri
         </Button>
       </div>
 
-      {/* Images */}
+      {/* Images — the API only ever exposes the primary photo back (no
+          endpoint lists every uploaded image), even though several can be
+          uploaded; `imagesCount` still reflects the real total server-side. */}
       <div className="bg-white rounded-2xl border border-border p-5 space-y-3">
-        <p className="text-sm font-semibold text-text-primary">Photos ({annonce.images.length}/10)</p>
+        <p className="text-sm font-semibold text-text-primary">Photos ({annonce.imagesCount}/10)</p>
         <div className="flex gap-3 flex-wrap">
-          {annonce.images.map((src, i) => (
+          {annonce.primaryImageUrl && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img key={i} src={src} alt="" className="w-20 h-20 rounded-xl object-cover border border-border" />
-          ))}
-          {annonce.images.length < 10 && (
+            <img src={annonce.primaryImageUrl} alt="" className="w-20 h-20 rounded-xl object-cover border border-border" />
+          )}
+          {annonce.imagesCount < 10 && (
             <label className="w-20 h-20 rounded-xl border-2 border-dashed border-border hover:border-brand flex items-center justify-center cursor-pointer transition-colors text-text-disabled hover:text-brand">
               <Upload className="w-6 h-6" />
               <input type="file" accept="image/*" multiple className="sr-only" onChange={handleImageUpload} />

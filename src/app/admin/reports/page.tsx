@@ -2,8 +2,7 @@ import { Suspense } from "react";
 import { unstable_rethrow } from "next/navigation";
 import { AdminFilterBar } from "@/components/admin/AdminFilterBar";
 import { ReportsList } from "./ReportsList";
-import { fetchAdminReports } from "../actions";
-import type { Report, PaginatedResponse } from "@/types/api";
+import { fetchAdminReports, type AdminReportsData } from "../actions";
 
 const REASON_LABELS: Record<string, { label: string }> = {
   SPAM:          { label: "Spam" },
@@ -31,7 +30,7 @@ export default async function AdminReportsPage({ searchParams }: ReportsPageProp
 
   const qsString = qs.toString();
 
-  let initialData: PaginatedResponse<Report> = { items: [], total: 0 };
+  let initialData: AdminReportsData = { items: [], total: 0, reporterProfiles: {}, annonceTitles: {} };
   try {
     initialData = await fetchAdminReports(qsString);
   } catch (e) { unstable_rethrow(e); /* ReportsList handles the empty state */ }

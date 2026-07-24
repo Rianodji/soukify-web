@@ -20,7 +20,7 @@ function rethrowIfRedirected(results: PromiseSettledResult<unknown>[]): void {
 }
 import type {
   UserRole, PaginatedResponse, AdminUser, Annonce, Report, Shop, Ticket,
-  FinanceDashboard, PlatformConfig, AuditEntry,
+  FinanceDashboard, PlatformConfig, AuditEntry, PublicUserProfile,
 } from "@/types/api";
 
 /* ── Polled list fetchers (used by client components via SWR) ──────────
@@ -36,14 +36,65 @@ export async function fetchAdminShops(qs: string): Promise<PaginatedResponse<Sho
   return serverGet<PaginatedResponse<Shop>>(`/admin/shops?${qs}`, 0);
 }
 
-export async function fetchAdminTickets(qs: string): Promise<PaginatedResponse<Ticket>> {
-  return serverGet<PaginatedResponse<Ticket>>(`/admin/tickets?${qs}`, 0);
+/**
+ * Bulk-resolves distinct user ids to their public profile.
+ *
+ * `GET /admin/users/:id` doesn't exist (404 — confirmed 2026-07-24, same gap
+ * as `GET /admin/shops/:id` and `GET /admin/tickets/:id`, cf. HANDOFF_INFRA.md)
+ * so per-user admin detail (phone/kycStatus/email) isn't resolvable here —
+ * uses the public `GET /users/:id/profile` instead, which only has
+ * `displayName`/`score`/`memberSince`. Bounded page sizes only.
+ */
+async function resolveUserProfiles(ids: Array<string | undefined>): Promise<Record<string, PublicUserProfile>> {
+  const distinct = [...new Set(ids.filter((id): id is string => !!id))];
+  const profiles = await Promise.all(
+    distinct.map((id) => serverGet<PublicUserProfile>(`/users/${id}/profile`, 60).catch(() => null)),
+  );
+  const byId: Record<string, PublicUserProfile> = {};
+  distinct.forEach((id, i) => { if (profiles[i]) byId[id] = profiles[i]!; });
+  return byId;
 }
 
-export async function fetchAdminReports(qs: string): Promise<PaginatedResponse<Report>> {
-  return serverGet<PaginatedResponse<Report>>(`/admin/reports?${qs}`, 0);
+async function resolveUserNames(ids: Array<string | undefined>): Promise<Record<string, string>> {
+  const profiles = await resolveUserProfiles(ids);
+  return Object.fromEntries(Object.entries(profiles).map(([id, p]) => [id, p.displayName]));
 }
 
+export interface AdminTicketsData extends PaginatedResponse<Ticket> {
+  /** `Ticket` only carries `reporterId`/`assigneeId` — resolved display names, keyed by userId. */
+  userNames: Record<string, string>;
+}
+
+export async function fetchAdminTickets(qs: string): Promise<AdminTicketsData> {
+  const res = await serverGet<PaginatedResponse<Ticket>>(`/admin/tickets?${qs}`, 0);
+  const userNames = await resolveUserNames(res.items.flatMap((t) => [t.reporterId, t.assigneeId]));
+  return { ...res, userNames };
+}
+
+export interface AdminReportsData extends PaginatedResponse<Report> {
+  /** `Report` only carries `reporterId` — resolved reporter profiles, keyed by userId. */
+  reporterProfiles: Record<string, PublicUserProfile>;
+  /** For reports with `targetType === "ANNONCE"` — resolved titles, keyed by `targetId`. */
+  annonceTitles: Record<string, string>;
+}
+
+export async function fetchAdminReports(qs: string): Promise<AdminReportsData> {
+  const res = await serverGet<PaginatedResponse<Report>>(`/admin/reports?${qs}`, 0);
+  const reporterProfiles = await resolveUserProfiles(res.items.map((r) => r.reporterId));
+
+  const annonceIds = [...new Set(
+    res.items.filter((r) => r.targetType === "ANNONCE").map((r) => r.targetId).filter((id): id is string => !!id),
+  )];
+  const annonces = await Promise.all(
+    annonceIds.map((id) => serverGet<Annonce>(`/annonces/${id}`, 60).catch(() => null)),
+  );
+  const annonceTitles: Record<string, string> = {};
+  annonceIds.forEach((id, i) => { if (annonces[i]) annonceTitles[id] = annonces[i]!.title; });
+
+  return { ...res, reporterProfiles, annonceTitles };
+}
+
+/** `GET /search/annonces` embeds `seller: {id, displayName, isKYCVerified}` (added 2026-07-24, cf. HANDOFF_INFRA.md). */
 export async function fetchAdminAnnonces(qs: string): Promise<PaginatedResponse<Annonce>> {
   return serverGet<PaginatedResponse<Annonce>>(`/search/annonces?${qs}`, 0);
 }
@@ -71,27 +122,26 @@ export async function fetchFinanceDashboardData(): Promise<FinanceDashboardData>
 }
 
 export interface SupportDashboardData {
-  urgentCount: number; highCount: number; mediumCount: number; lowCount: number;
+  urgentCount: number; normalCount: number;
   pendingReports: number;
   myTickets: Ticket[];
+  /** `Ticket` only carries `reporterId` — resolved display names, keyed by userId. */
+  userNames: Record<string, string>;
   auditEntries: AuditEntry[];
 }
 
 export async function fetchSupportDashboardData(userId?: string): Promise<SupportDashboardData> {
-  let urgentCount = 0, highCount = 0, mediumCount = 0, lowCount = 0;
+  let urgentCount = 0, normalCount = 0;
   let pendingReports = 0;
   let myTickets: Ticket[] = [];
   let auditEntries: AuditEntry[] = [];
 
   rethrowIfRedirected(await Promise.allSettled([
+    /* Real priority enum is `NORMAL | URGENT` only (cf. HANDOFF_INFRA.md, 2026-07-24). */
     serverGet<PaginatedResponse<Ticket>>("/admin/tickets?status=OPEN&priority=URGENT&limit=1", 0)
       .then((r) => { urgentCount = r.total; }),
-    serverGet<PaginatedResponse<Ticket>>("/admin/tickets?status=OPEN&priority=HIGH&limit=1", 0)
-      .then((r) => { highCount = r.total; }),
-    serverGet<PaginatedResponse<Ticket>>("/admin/tickets?status=OPEN&priority=MEDIUM&limit=1", 0)
-      .then((r) => { mediumCount = r.total; }),
-    serverGet<PaginatedResponse<Ticket>>("/admin/tickets?status=OPEN&priority=LOW&limit=1", 0)
-      .then((r) => { lowCount = r.total; }),
+    serverGet<PaginatedResponse<Ticket>>("/admin/tickets?status=OPEN&priority=NORMAL&limit=1", 0)
+      .then((r) => { normalCount = r.total; }),
     serverGet<PaginatedResponse<Report>>("/admin/reports?status=PENDING&limit=1", 0)
       .then((r) => { pendingReports = r.total; }),
     userId
@@ -102,7 +152,9 @@ export async function fetchSupportDashboardData(userId?: string): Promise<Suppor
       .then((r) => { auditEntries = r.items; }),
   ]));
 
-  return { urgentCount, highCount, mediumCount, lowCount, pendingReports, myTickets, auditEntries };
+  const userNames = await resolveUserNames(myTickets.map((t) => t.reporterId));
+
+  return { urgentCount, normalCount, pendingReports, myTickets, userNames, auditEntries };
 }
 
 export interface AccountManagerDashboardData {
@@ -203,8 +255,15 @@ export async function unsuspendUser(userId: string) {
   revalidatePath("/admin/users");
 }
 
-export async function changeUserRole(userId: string, role: UserRole) {
-  await serverPatch(`/admin/users/${userId}/role`, { role });
+/**
+ * Confirmed against the real DTO (2026-07-24): roles are additive/removable,
+ * not a single replaceable value — `{ role }` alone 400s ("action must be one
+ * of the following values: add, remove"). The current dropdown UI only ever
+ * grants a role; it can't yet express demoting someone (removing a role they
+ * already hold), which would need its own affordance — noted in HANDOFF_INFRA.md.
+ */
+export async function changeUserRole(userId: string, role: UserRole, action: "add" | "remove" = "add") {
+  await serverPatch(`/admin/users/${userId}/role`, { role, action });
   revalidatePath("/admin/users");
 }
 
@@ -270,15 +329,23 @@ export async function dismissReport(reportId: string) {
 
 /* ── Tickets (create) ───────────────────────────────────── */
 
+/**
+ * `POST /admin/tickets` DTO is `{ type: "DISPUTE"|"SUPPORT", subject,
+ * description, orderId? }` — no `priority` (always starts `NORMAL`, cf.
+ * `TicketPriority`), no `userId` (reporter is always the calling admin, not
+ * settable). Sending the old `priority`/`userId` fields 400s: "property
+ * priority should not exist" (confirmed, cf. HANDOFF_INFRA.md, 2026-07-24).
+ * Response is `{ ticketId }`, not `{ id }`.
+ */
 export async function createTicket(data: {
   subject: string;
   description: string;
-  priority: string;
-  userId?: string;
+  type: "SUPPORT" | "DISPUTE";
+  orderId?: string;
 }): Promise<{ id: string }> {
-  const ticket = await serverPost<{ id: string }>("/admin/tickets", data);
+  const ticket = await serverPost<{ ticketId: string }>("/admin/tickets", data);
   revalidatePath("/admin/tickets");
-  return { id: ticket.id };
+  return { id: ticket.ticketId };
 }
 
 /* ── Config ──────────────────────────────────────────────── */

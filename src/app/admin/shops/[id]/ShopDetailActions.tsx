@@ -40,7 +40,7 @@ export function ShopDetailActions({ shopId, status }: ShopDetailActionsProps) {
     );
   }
 
-  if (status === "APPROVED") {
+  if (status === "ACTIVE") {
     return (
       <Button size="md" variant="secondary" loading={pending}
         className="w-full text-error border-error hover:bg-error-light"

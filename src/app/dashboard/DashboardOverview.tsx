@@ -8,6 +8,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { formatPrice } from "@/lib/utils";
+import { getAnnoncePriceXAF, getAnnonceImageUrl } from "@/lib/annonce";
 import { Store } from "lucide-react";
 import { fetchDashboardOverview, type DashboardOverviewData } from "./actions";
 import { usePolledData } from "@/hooks/usePolledData";
@@ -144,7 +145,7 @@ export function DashboardOverview({ initialData, sellerMode, adminMode, isPro }:
       {/* ── Boutique PRO card ───────────────────────────────── */}
       {isPro && (
         <div>
-          {proShop?.status === "APPROVED" ? (
+          {proShop?.status === "ACTIVE" ? (
             <div className="flex items-center gap-4 p-4 rounded-2xl bg-white border border-border hover:border-brand hover:shadow-sm transition-all">
               <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0">
                 {proShop.logoUrl
@@ -157,11 +158,11 @@ export function DashboardOverview({ initialData, sellerMode, adminMode, isPro }:
                 <div className="flex items-center gap-2">
                   <Store className="w-4 h-4 text-brand" />
                   <span className="font-semibold text-text-primary truncate">{proShop.name}</span>
-                  <Badge variant={(({ FREE: "neutral", STANDARD: "default", PREMIUM: "gold" } as Record<string, "neutral" | "default" | "gold">)[proShop.subscription]) ?? "neutral"}>
-                    {proShop.subscription}
+                  <Badge variant={(({ FREE: "neutral", STANDARD: "default", PREMIUM: "gold" } as Record<string, "neutral" | "default" | "gold">)[proShop.plan]) ?? "neutral"}>
+                    {proShop.plan}
                   </Badge>
                 </div>
-                <p className="text-xs text-text-secondary mt-0.5">Boutique active · {(proShop.staff ?? []).length} membres</p>
+                <p className="text-xs text-text-secondary mt-0.5">Boutique active · {(proShop.members ?? []).length} membres</p>
               </div>
               <Link href="/dashboard/boutique">
                 <Button size="sm" variant="secondary">Gérer <ArrowRight className="w-3.5 h-3.5" /></Button>
@@ -268,14 +269,14 @@ export function DashboardOverview({ initialData, sellerMode, adminMode, isPro }:
                       className="flex items-center gap-3 px-5 py-3.5 hover:bg-primary-50 transition-colors"
                     >
                       <div className="w-10 h-10 rounded-xl bg-primary-50 flex items-center justify-center text-lg shrink-0">
-                        {a.images?.[0] ? (
+                        {getAnnonceImageUrl(a) ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={a.images[0]} alt="" className="w-full h-full object-cover rounded-xl" />
+                          <img src={getAnnonceImageUrl(a)} alt="" className="w-full h-full object-cover rounded-xl" />
                         ) : "📦"}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-text-primary truncate">{a.title}</p>
-                        <p className="text-xs text-text-secondary">{formatPrice(a.price)}</p>
+                        <p className="text-xs text-text-secondary">{formatPrice(getAnnoncePriceXAF(a))}</p>
                       </div>
                       <Badge variant="success">Active</Badge>
                     </Link>

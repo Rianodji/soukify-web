@@ -1,8 +1,8 @@
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { getSession, isAdmin } from "@/lib/session";
 import { serverGet } from "@/infrastructure/http/ApiServer";
 import { AdminShell } from "./AdminShell";
-import type { UserProfile } from "@/types/api";
+import type { MyProfile } from "@/types/api";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
@@ -10,9 +10,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   let userName = "Administrateur";
   try {
-    const profile = await serverGet<UserProfile>("/users/me", 0);
-    userName = profile.name || "Administrateur";
-  } catch {
+    const profile = await serverGet<MyProfile>("/users/me", 0);
+    userName = profile.displayName || "Administrateur";
+  } catch (e) {
+    unstable_rethrow(e);
     /* silently degrade */
   }
 

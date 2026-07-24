@@ -2,6 +2,7 @@ import Link from "next/link";
 import { MapPin, Clock, Star } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { formatPrice } from "@/lib/utils";
+import { getAnnoncePriceXAF, getAnnonceImageUrl } from "@/lib/annonce";
 import { ANNONCE_CONDITIONS } from "@/lib/constants";
 import type { Annonce } from "@/types/api";
 
@@ -20,6 +21,7 @@ function timeAgo(dateStr: string): string {
 }
 
 export function AnnonceCard({ annonce }: AnnonceCardProps) {
+  const imageUrl = getAnnonceImageUrl(annonce);
   return (
     <Link
       href={`/annonces/${annonce.id}`}
@@ -27,10 +29,10 @@ export function AnnonceCard({ annonce }: AnnonceCardProps) {
     >
       {/* Image */}
       <div className="relative aspect-[4/3] bg-primary-50 overflow-hidden">
-        {annonce.images?.[0] ? (
+        {imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={annonce.images[0]}
+            src={imageUrl}
             alt={annonce.title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
@@ -60,7 +62,7 @@ export function AnnonceCard({ annonce }: AnnonceCardProps) {
         </p>
 
         <p className="text-lg font-bold text-brand mt-auto">
-          {formatPrice(annonce.price)}
+          {formatPrice(getAnnoncePriceXAF(annonce))}
         </p>
 
         <div className="flex items-center justify-between text-xs text-text-secondary mt-1">
@@ -74,16 +76,17 @@ export function AnnonceCard({ annonce }: AnnonceCardProps) {
           </span>
         </div>
 
-        {/* Seller */}
-        <div className="flex items-center gap-1.5 pt-2 border-t border-border mt-1">
-          <div className="w-5 h-5 rounded-full bg-primary-100 flex items-center justify-center text-xs font-bold text-brand shrink-0">
-            {annonce.seller.name[0].toUpperCase()}
+        {annonce.seller && (
+          <div className="flex items-center gap-1.5 pt-2 border-t border-border mt-1">
+            <div className="w-5 h-5 rounded-full bg-primary-100 flex items-center justify-center text-xs font-bold text-brand shrink-0">
+              {annonce.seller.displayName[0]?.toUpperCase() ?? "?"}
+            </div>
+            <span className="text-xs text-text-secondary truncate">{annonce.seller.displayName}</span>
+            {annonce.seller.isKYCVerified && (
+              <Star className="w-3 h-3 text-gold ml-auto shrink-0" fill="currentColor" />
+            )}
           </div>
-          <span className="text-xs text-text-secondary truncate">{annonce.seller.name}</span>
-          {annonce.seller.isKycVerified && (
-            <Star className="w-3 h-3 text-gold ml-auto shrink-0" fill="currentColor" />
-          )}
-        </div>
+        )}
       </div>
     </Link>
   );

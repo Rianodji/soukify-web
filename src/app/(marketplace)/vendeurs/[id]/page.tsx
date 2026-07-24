@@ -1,10 +1,8 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, Shield, Star, Calendar, Package } from "lucide-react";
-import { Badge } from "@/components/ui/Badge";
-import { formatPhoneDisplay } from "@/lib/utils";
+import { Star, Calendar, Package, ChevronLeft } from "lucide-react";
 import { AnnonceCard } from "@/components/features/annonces/AnnonceCard";
-import type { UserProfile, Annonce, PaginatedResponse, Review, UserScore } from "@/types/api";
+import type { PublicUserProfile, Annonce, PaginatedResponse, Review, UserScore } from "@/types/api";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3020/api/v1";
 
@@ -26,10 +24,12 @@ interface VendeurPageProps {
 export default async function VendeurPage({ params }: VendeurPageProps) {
   const { id } = await params;
 
-  const [profile, annoncesRes, reviews, score] = await Promise.all([
-    fetchJson<UserProfile>(`${API_BASE}/users/${id}/profile`),
+  const [profile, annoncesRes, reviewsRes, score] = await Promise.all([
+    fetchJson<PublicUserProfile>(`${API_BASE}/users/${id}/profile`),
     fetchJson<PaginatedResponse<Annonce>>(`${API_BASE}/search/annonces?sellerId=${id}&status=ACTIVE&limit=12`),
-    fetchJson<Review[]>(`${API_BASE}/users/${id}/reviews`),
+    /* `GET /users/:id/reviews` returns `{ userId, total, items }`, not a bare
+     * array (confirmed against real data, cf. HANDOFF_INFRA.md). */
+    fetchJson<PaginatedResponse<Review>>(`${API_BASE}/users/${id}/reviews`),
     fetchJson<UserScore>(`${API_BASE}/users/${id}/score`),
   ]);
 
@@ -37,8 +37,18 @@ export default async function VendeurPage({ params }: VendeurPageProps) {
 
   const annonces = annoncesRes?.items ?? [];
   const totalAnnonces = annoncesRes?.total ?? 0;
+  const reviews = reviewsRes?.items ?? [];
+  /* No embedded `reviewer` object (cf. HANDOFF_INFRA.md) — resolve names separately. */
+  const reviewerNames = Object.fromEntries(
+    await Promise.all(
+      [...new Set(reviews.map((r) => r.reviewerId))].map(async (rid) => {
+        const p = await fetchJson<PublicUserProfile>(`${API_BASE}/users/${rid}/profile`);
+        return [rid, p?.displayName ?? "Utilisateur"] as const;
+      }),
+    ),
+  );
 
-  const memberSince = new Date(profile.createdAt).toLocaleDateString("fr-FR", {
+  const memberSince = new Date(profile.memberSince).toLocaleDateString("fr-FR", {
     month: "long",
     year: "numeric",
   });
@@ -74,35 +84,23 @@ export default async function VendeurPage({ params }: VendeurPageProps) {
           {/* Avatar */}
           <div className="relative">
             <div className="w-20 h-20 rounded-2xl bg-brand flex items-center justify-center text-white text-3xl font-bold shrink-0">
-              {profile.name[0].toUpperCase()}
+              {profile.displayName[0]?.toUpperCase() ?? "?"}
             </div>
-            {profile.isKycVerified && (
-              <div className="absolute -bottom-1.5 -right-1.5 w-7 h-7 rounded-full bg-success border-2 border-white flex items-center justify-center">
-                <Shield className="w-3.5 h-3.5 text-white" />
-              </div>
-            )}
           </div>
 
           {/* Info */}
           <div className="flex-1 min-w-0 space-y-2">
             <div className="flex items-start justify-between flex-wrap gap-2">
               <div>
-                <h1 className="text-xl font-bold text-text-primary">{profile.name}</h1>
-                <p className="text-sm text-text-secondary">{formatPhoneDisplay(profile.phoneNumber)}</p>
+                <h1 className="text-xl font-bold text-text-primary">{profile.displayName}</h1>
               </div>
-              {profile.isKycVerified && (
-                <Badge variant="success" className="flex items-center gap-1">
-                  <Shield className="w-3 h-3" />
-                  Identité vérifiée
-                </Badge>
-              )}
             </div>
 
             {/* Stats */}
             <div className="flex flex-wrap gap-4 text-sm">
               {score && (
                 <div className="flex items-center gap-1.5">
-                  <StarRating rating={score.score / 20} />
+                  <StarRating rating={score.averageRating} />
                   <span className="text-text-secondary text-xs">
                     {score.reviewCount} avis
                   </span>
@@ -147,7 +145,7 @@ export default async function VendeurPage({ params }: VendeurPageProps) {
         <div className="space-y-4">
           <h2 className="font-bold text-text-primary text-lg">Avis</h2>
 
-          {!reviews || reviews.length === 0 ? (
+          {reviews.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 gap-3 bg-white rounded-2xl border border-border">
               <Star className="w-8 h-8 text-border" />
               <p className="text-text-secondary text-sm text-center">
@@ -161,9 +159,9 @@ export default async function VendeurPage({ params }: VendeurPageProps) {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className="w-7 h-7 rounded-full bg-primary-100 flex items-center justify-center text-brand text-xs font-bold shrink-0">
-                        {review.reviewer.name[0].toUpperCase()}
+                        {(reviewerNames[review.reviewerId] ?? "?")[0]?.toUpperCase() ?? "?"}
                       </div>
-                      <span className="text-sm font-medium text-text-primary">{review.reviewer.name}</span>
+                      <span className="text-sm font-medium text-text-primary">{reviewerNames[review.reviewerId] ?? "Utilisateur"}</span>
                     </div>
                     <div className="flex items-center gap-0.5">
                       {Array.from({ length: 5 }).map((_, i) => (

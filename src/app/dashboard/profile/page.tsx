@@ -5,8 +5,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Phone, Shield, CheckCircle, Clock, Calendar, User } from "lucide-react";
 import { EditProfileForm } from "./EditProfileForm";
 import { KycForm } from "./KycForm";
-import { formatPhoneDisplay } from "@/lib/utils";
-import type { UserProfile } from "@/types/api";
+import type { MyProfile } from "@/types/api";
 
 const ROLE_LABELS: Record<string, string> = {
   BUYER: "Acheteur", SELLER: "Vendeur", PRO_SELLER: "Vendeur Pro",
@@ -16,15 +15,16 @@ const ROLE_LABELS: Record<string, string> = {
 
 export default async function ProfilePage() {
   const session = await getSession();
-  let profile: UserProfile | null = null;
+  let profile: MyProfile | null = null;
 
   try {
-    profile = await serverGet<UserProfile>("/users/me", 0);
+    profile = await serverGet<MyProfile>("/users/me", 0);
   } catch (e) { unstable_rethrow(e); /* handled below */ }
 
-  const name      = profile?.name       ?? "Utilisateur";
+  const name      = profile?.displayName ?? "Utilisateur";
+  /* phoneNumber from GET /users/me is already masked (e.g. "+235••••••23") — display as-is. */
   const phone     = profile?.phoneNumber ?? "";
-  const isKyc     = profile?.isKycVerified ?? false;
+  const isKyc     = profile?.isKYCVerified ?? false;
   const createdAt = profile?.createdAt;
 
   return (
@@ -54,7 +54,7 @@ export default async function ProfilePage() {
             <div>
               <p className="text-xs text-text-secondary">Téléphone</p>
               <p className="text-sm font-medium text-text-primary font-mono">
-                {phone ? formatPhoneDisplay(phone) : "—"}
+                {phone || "—"}
               </p>
             </div>
           </div>

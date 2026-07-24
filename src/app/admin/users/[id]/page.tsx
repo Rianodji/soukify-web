@@ -1,20 +1,40 @@
-import { notFound, unstable_rethrow } from "next/navigation";
 import Link from "next/link";
+import { unstable_rethrow } from "next/navigation";
 import {
   ChevronLeft, Phone, Mail, Calendar, Shield,
-  Package, Star, MapPin, Clock,
+  Package, Star, MapPin, Clock, AlertTriangle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { serverGet } from "@/infrastructure/http/ApiServer";
 import { formatPrice, formatPhoneDisplay } from "@/lib/utils";
+import { getAnnoncePriceXAF, getAnnonceImageUrl } from "@/lib/annonce";
 import { UserProfileActions } from "./UserProfileActions";
-import type { AdminUser, Annonce, PaginatedResponse, Review, UserScore, KycStatus, UserRole } from "@/types/api";
+import type { AdminUser, Annonce, PaginatedResponse, PublicUserProfile, Review, UserScore, KycStatus, UserRole } from "@/types/api";
+
+/**
+ * `GET /admin/users/:id` doesn't exist (404 — confirmed 2026-07-24, same gap
+ * as `GET /admin/shops/:id` and `GET /admin/tickets/:id`, cf. HANDOFF_INFRA.md).
+ * Best-effort fallback: scan `GET /admin/users` for a matching id — reliable
+ * at today's scale (~15 seeded accounts) but NOT guaranteed once the user
+ * base grows past whatever page size is fetched here. Returns `null` rather
+ * than assuming the user doesn't exist, so the page can say so honestly
+ * instead of a misleading 404.
+ */
+async function fetchUser(id: string): Promise<AdminUser | null> {
+  try {
+    const list = await serverGet<PaginatedResponse<AdminUser>>("/admin/users?limit=200", 0);
+    return list.items.find((u) => u.id === id) ?? null;
+  } catch (e) {
+    unstable_rethrow(e);
+    return null;
+  }
+}
 
 const KYC_CONFIG: Record<KycStatus, { label: string; variant: "success" | "warning" | "error" | "neutral" }> = {
-  APPROVED: { label: "KYC vérifié",    variant: "success" },
-  PENDING:  { label: "KYC en attente", variant: "warning" },
-  REJECTED: { label: "KYC rejeté",     variant: "error" },
-  NONE:     { label: "Non vérifié",    variant: "neutral" },
+  APPROVED:      { label: "KYC vérifié",    variant: "success" },
+  PENDING:       { label: "KYC en attente", variant: "warning" },
+  REJECTED:      { label: "KYC rejeté",     variant: "error" },
+  NOT_SUBMITTED: { label: "Non vérifié",    variant: "neutral" },
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -27,11 +47,6 @@ const CONDITION_LABELS: Record<string, string> = {
   NEW: "Neuf", LIKE_NEW: "Comme neuf", GOOD: "Bon état", FAIR: "Correct", POOR: "À réparer",
 };
 
-async function fetchUser(id: string): Promise<AdminUser | null> {
-  try { return await serverGet<AdminUser>(`/admin/users/${id}`, 0); }
-  catch (e) { unstable_rethrow(e); return null; }
-}
-
 interface UserDetailPageProps {
   params: Promise<{ id: string }>;
 }
@@ -39,16 +54,45 @@ interface UserDetailPageProps {
 export default async function AdminUserDetailPage({ params }: UserDetailPageProps) {
   const { id } = await params;
 
-  const [user, annoncesRes, reviews, score] = await Promise.all([
+  const [user, annoncesRes, reviewsRes, score] = await Promise.all([
     fetchUser(id),
     serverGet<PaginatedResponse<Annonce>>(`/search/annonces?sellerId=${id}&limit=6`, 0).catch((e: unknown) => { unstable_rethrow(e); return null; }),
-    serverGet<Review[]>(`/users/${id}/reviews`).catch((e: unknown) => { unstable_rethrow(e); return null; }),
-    serverGet<UserScore>(`/users/${id}/score`).catch((e: unknown) => { unstable_rethrow(e); return null; }),
+    /* `GET /users/:id/reviews` returns `{ userId, total, items }`, not a bare
+     * array (confirmed against real data, cf. HANDOFF_INFRA.md). */
+    serverGet<PaginatedResponse<Review>>(`/users/${id}/reviews`, 0).catch((e: unknown) => { unstable_rethrow(e); return null; }),
+    serverGet<UserScore>(`/users/${id}/score`, 0).catch((e: unknown) => { unstable_rethrow(e); return null; }),
   ]);
+  const reviews = reviewsRes?.items ?? null;
+  /* No embedded `reviewer` object (cf. HANDOFF_INFRA.md) — resolve names separately. */
+  const reviewerNames = reviews
+    ? Object.fromEntries(
+        (await Promise.all(
+          [...new Set(reviews.map((r) => r.reviewerId))].map((rid) =>
+            serverGet<PublicUserProfile>(`/users/${rid}/profile`, 60).then((p) => [rid, p.displayName] as const).catch(() => [rid, "Utilisateur"] as const),
+          ),
+        )),
+      )
+    : {};
 
-  if (!user) notFound();
+  if (!user) {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8 max-w-lg mx-auto">
+        <div className="bg-white rounded-2xl border border-warning p-8 text-center space-y-3">
+          <AlertTriangle className="w-10 h-10 text-warning mx-auto" />
+          <h2 className="text-lg font-bold text-text-primary">Profil temporairement indisponible</h2>
+          <p className="text-sm text-text-secondary">
+            Impossible d&apos;afficher ce compte pour le moment — pas forcément qu&apos;il n&apos;existe pas.
+          </p>
+          <Link href="/admin/users" className="inline-block text-sm text-brand hover:underline">
+            ← Retour à la liste
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
-  const kyc = KYC_CONFIG[user.kycStatus ?? "NONE"];
+  const kyc = KYC_CONFIG[user.kycStatus ?? "NOT_SUBMITTED"];
+  const isSuspended = user.status === "SUSPENDED";
   const annonces = annoncesRes?.items ?? [];
   const isSeller = user.roles.some((r) => ["SELLER", "PRO_SELLER"].includes(r));
 
@@ -72,9 +116,9 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
         <div className="flex items-start gap-5 flex-wrap">
           <div className="relative">
             <div className="w-16 h-16 rounded-2xl bg-brand flex items-center justify-center text-white text-2xl font-bold">
-              {user.name?.[0]?.toUpperCase() ?? "?"}
+              {user.displayName?.[0]?.toUpperCase() ?? "?"}
             </div>
-            {user.isSuspended && (
+            {isSuspended && (
               <div className="absolute -bottom-1.5 -right-1.5 w-6 h-6 rounded-full bg-error border-2 border-white flex items-center justify-center">
                 <span className="text-white text-[10px] font-bold">S</span>
               </div>
@@ -83,8 +127,8 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
 
           <div className="flex-1 min-w-0 space-y-2">
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl font-bold text-text-primary">{user.name}</h1>
-              {user.isSuspended && <Badge variant="error">Suspendu</Badge>}
+              <h1 className="text-xl font-bold text-text-primary">{user.displayName}</h1>
+              {isSuspended && <Badge variant="error">Suspendu</Badge>}
               <Badge variant={kyc.variant}>{kyc.label}</Badge>
             </div>
 
@@ -155,9 +199,9 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
                         className="flex items-center gap-3 px-5 py-3.5 hover:bg-primary-50 transition-colors group"
                       >
                         <div className="w-10 h-10 rounded-xl bg-primary-50 flex items-center justify-center shrink-0 overflow-hidden">
-                          {a.images?.[0] ? (
+                          {getAnnonceImageUrl(a) ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={a.images[0]} alt="" className="w-full h-full object-cover" />
+                            <img src={getAnnonceImageUrl(a)} alt="" className="w-full h-full object-cover" />
                           ) : (
                             <Package className="w-5 h-5 text-primary-300" />
                           )}
@@ -167,7 +211,7 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
                             {a.title}
                           </p>
                           <div className="flex items-center gap-2 mt-0.5 text-xs text-text-secondary">
-                            <span className="font-semibold text-brand">{formatPrice(a.price)}</span>
+                            <span className="font-semibold text-brand">{formatPrice(getAnnoncePriceXAF(a))}</span>
                             <span className="flex items-center gap-0.5">
                               <MapPin className="w-3 h-3" />{a.city}
                             </span>
@@ -198,7 +242,7 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
                 {reviews.slice(0, 5).map((review) => (
                   <li key={review.id} className="px-5 py-3.5">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium text-text-primary">{review.reviewer.name}</span>
+                      <span className="text-sm font-medium text-text-primary">{reviewerNames[review.reviewerId] ?? "Utilisateur"}</span>
                       <div className="flex items-center gap-0.5">
                         {Array.from({ length: 5 }).map((_, i) => (
                           <Star key={i} className={`w-3.5 h-3.5 ${i < review.rating ? "text-gold" : "text-border"}`}
@@ -235,8 +279,8 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
             <h2 className="font-semibold text-text-primary text-sm mb-4">Actions administrateur</h2>
             <UserProfileActions
               userId={user.id}
-              kycStatus={user.kycStatus ?? "NONE"}
-              isSuspended={user.isSuspended}
+              kycStatus={user.kycStatus ?? "NOT_SUBMITTED"}
+              isSuspended={isSuspended}
               primaryRole={primaryRole}
             />
           </div>
@@ -248,7 +292,7 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
               <div className="text-center">
                 <p className="text-3xl font-bold text-brand">{score.score}</p>
                 <p className="text-xs text-text-secondary mt-1">
-                  {score.positiveCount} avis positifs / {score.reviewCount} total
+                  {score.reviewCount} avis · note moyenne {score.averageRating.toFixed(1)}/5
                 </p>
               </div>
               <div className="h-2 bg-border rounded-full overflow-hidden">
@@ -278,8 +322,8 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
               </div>
               <div className="flex justify-between">
                 <dt className="text-text-disabled">Statut</dt>
-                <dd className={user.isSuspended ? "text-error font-medium" : "text-success font-medium"}>
-                  {user.isSuspended ? "Suspendu" : "Actif"}
+                <dd className={isSuspended ? "text-error font-medium" : "text-success font-medium"}>
+                  {isSuspended ? "Suspendu" : "Actif"}
                 </dd>
               </div>
             </dl>

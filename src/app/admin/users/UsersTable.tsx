@@ -12,10 +12,10 @@ import { usePolledData } from "@/hooks/usePolledData";
 import type { AdminUser, PaginatedResponse, UserRole, KycStatus } from "@/types/api";
 
 const KYC_CONFIG: Record<KycStatus, { label: string; variant: "success" | "warning" | "error" | "neutral" }> = {
-  APPROVED: { label: "KYC ✓",    variant: "success" },
-  PENDING:  { label: "KYC…",     variant: "warning" },
-  REJECTED: { label: "KYC ✗",    variant: "error" },
-  NONE:     { label: "Non vérifié", variant: "neutral" },
+  APPROVED:      { label: "KYC ✓",       variant: "success" },
+  PENDING:       { label: "KYC…",        variant: "warning" },
+  REJECTED:      { label: "KYC ✗",       variant: "error" },
+  NOT_SUBMITTED: { label: "Non vérifié", variant: "neutral" },
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -65,7 +65,8 @@ export function UsersTable({ qs, page, limit, initialData }: UsersTableProps) {
               </thead>
               <tbody className="divide-y divide-border">
                 {users.map((user) => {
-                  const kyc = KYC_CONFIG[user.kycStatus ?? "NONE"];
+                  const kyc = KYC_CONFIG[user.kycStatus ?? "NOT_SUBMITTED"];
+                  const isSuspended = user.status === "SUSPENDED";
                   const primaryRole: UserRole = (
                     user.roles.find((r) => ["SUPER_ADMIN","ADMIN","FINANCE","SUPPORT","ACCOUNT_MANAGER"].includes(r)) ??
                     user.roles.find((r) => ["PRO_SELLER","SELLER"].includes(r)) ??
@@ -76,10 +77,10 @@ export function UsersTable({ qs, page, limit, initialData }: UsersTableProps) {
                       <td className="px-4 py-3">
                         <Link href={`/admin/users/${user.id}`} className="flex items-center gap-2.5 group">
                           <div className="w-8 h-8 rounded-full bg-brand flex items-center justify-center text-white text-xs font-bold shrink-0">
-                            {user.name?.[0]?.toUpperCase() ?? "?"}
+                            {user.displayName?.[0]?.toUpperCase() ?? "?"}
                           </div>
                           <span className="font-medium text-text-primary group-hover:text-brand transition-colors truncate max-w-[130px] flex items-center gap-1">
-                            {user.name}
+                            {user.displayName}
                             <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                           </span>
                         </Link>
@@ -102,8 +103,8 @@ export function UsersTable({ qs, page, limit, initialData }: UsersTableProps) {
                         <Badge variant={kyc.variant}>{kyc.label}</Badge>
                       </td>
                       <td className="px-4 py-3">
-                        <Badge variant={user.isSuspended ? "error" : "success"}>
-                          {user.isSuspended ? "Suspendu" : "Actif"}
+                        <Badge variant={isSuspended ? "error" : "success"}>
+                          {isSuspended ? "Suspendu" : "Actif"}
                         </Badge>
                       </td>
                       <td className="px-4 py-3 text-text-secondary text-xs whitespace-nowrap">
@@ -112,8 +113,8 @@ export function UsersTable({ qs, page, limit, initialData }: UsersTableProps) {
                       <td className="px-4 py-3">
                         <UserActions
                           userId={user.id}
-                          isSuspended={user.isSuspended}
-                          kycStatus={user.kycStatus ?? "NONE"}
+                          isSuspended={isSuspended}
+                          kycStatus={user.kycStatus ?? "NOT_SUBMITTED"}
                           primaryRole={primaryRole}
                         />
                       </td>

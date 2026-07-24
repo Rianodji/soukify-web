@@ -9,7 +9,8 @@ import { AnnonceActions } from "./AnnonceActions";
 import { AdminPagination } from "@/components/admin/AdminPagination";
 import { fetchAdminAnnonces } from "../actions";
 import { usePolledData } from "@/hooks/usePolledData";
-import type { Annonce, PaginatedResponse } from "@/types/api";
+import { getAnnoncePriceXAF, getAnnonceImageUrl } from "@/lib/annonce";
+import type { PaginatedResponse, Annonce } from "@/types/api";
 
 const STATUS_CONFIG: Record<string, { label: string; variant: "success" | "warning" | "error" | "neutral" | "default" }> = {
   ACTIVE:  { label: "Active",    variant: "success" },
@@ -63,9 +64,9 @@ export function AnnoncesTable({ qs, page, limit, initialData }: AnnoncesTablePro
                     <tr key={a.id} className="hover:bg-background transition-colors">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          {a.images?.[0] ? (
+                          {getAnnonceImageUrl(a) ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={a.images[0]} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                            <img src={getAnnonceImageUrl(a)} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
                           ) : (
                             <div className="w-10 h-10 rounded-lg bg-primary-50 flex items-center justify-center shrink-0">
                               <Package className="w-5 h-5 text-brand" />
@@ -75,10 +76,10 @@ export function AnnoncesTable({ qs, page, limit, initialData }: AnnoncesTablePro
                         </div>
                       </td>
                       <td className="px-4 py-3 max-w-[130px]">
-                        {a.seller ? (
-                          <Link href={`/admin/users/${a.seller.id}`}
+                        {a.sellerId ? (
+                          <Link href={`/admin/users/${a.sellerId}`}
                             className="text-sm text-text-secondary hover:text-brand transition-colors truncate block">
-                            {a.seller.name}
+                            {a.seller?.displayName ?? `#${a.sellerId.slice(0, 8)}`}
                           </Link>
                         ) : (
                           <span className="text-text-disabled text-sm">—</span>
@@ -87,7 +88,7 @@ export function AnnoncesTable({ qs, page, limit, initialData }: AnnoncesTablePro
                       <td className="px-4 py-3">
                         <Badge variant="outline">{a.type === "SALE" ? "Vente" : "Service"}</Badge>
                       </td>
-                      <td className="px-4 py-3 font-semibold text-brand whitespace-nowrap">{formatPrice(a.price)}</td>
+                      <td className="px-4 py-3 font-semibold text-brand whitespace-nowrap">{formatPrice(getAnnoncePriceXAF(a))}</td>
                       <td className="px-4 py-3 text-text-secondary whitespace-nowrap">{a.city}</td>
                       <td className="px-4 py-3">
                         <Badge variant={status.variant}>{status.label}</Badge>

@@ -15,6 +15,7 @@ import { ShopParametres } from "./ShopParametres";
 import { LogoUpload } from "./LogoUpload";
 import { CsvImport } from "./CsvImport";
 import { formatPrice } from "@/lib/utils";
+import { getAnnoncePriceXAF, getAnnonceImageUrl } from "@/lib/annonce";
 import { publishAnnonce, deleteOwnAnnonce, fetchBoutiqueData, type BoutiqueData } from "../actions";
 import { usePolledData } from "@/hooks/usePolledData";
 
@@ -49,7 +50,7 @@ export function BoutiqueView({ initialData, tab, annonceStatus }: BoutiqueViewPr
     () => fetchBoutiqueData(needsAnnonces, annonceStatus),
     initialData,
   );
-  const { shop, stats, annonces, annoncesTotal } = data ?? initialData;
+  const { shop, stats, annonces, annoncesTotal, memberNames } = data ?? initialData;
 
   /* ── No shop ─────────────────────────────────────────────── */
   if (!shop) {
@@ -118,8 +119,8 @@ export function BoutiqueView({ initialData, tab, annonceStatus }: BoutiqueViewPr
   }
 
   /* ── Approved ─────────────────────────────────────────────── */
-  const members = shop.staff ?? [];
-  const isStandardPlus = shop.subscription === "STANDARD" || shop.subscription === "PREMIUM";
+  const members = shop.members ?? [];
+  const isStandardPlus = shop.plan === "STANDARD" || shop.plan === "PREMIUM";
 
   const SUB_LABELS: Record<string, string> = { FREE: "Gratuit", STANDARD: "Standard", PREMIUM: "Premium" };
   const SUB_VARIANTS: Record<string, "neutral" | "default" | "gold"> = { FREE: "neutral", STANDARD: "default", PREMIUM: "gold" };
@@ -141,8 +142,8 @@ export function BoutiqueView({ initialData, tab, annonceStatus }: BoutiqueViewPr
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-xl font-bold text-text-primary">{shop.name}</h2>
-            <Badge variant={SUB_VARIANTS[shop.subscription] ?? "neutral"}>
-              {SUB_LABELS[shop.subscription] ?? shop.subscription}
+            <Badge variant={SUB_VARIANTS[shop.plan] ?? "neutral"}>
+              {SUB_LABELS[shop.plan] ?? shop.plan}
             </Badge>
             <Badge variant="success">Active</Badge>
           </div>
@@ -184,9 +185,9 @@ export function BoutiqueView({ initialData, tab, annonceStatus }: BoutiqueViewPr
           {/* KPI grid */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { label: "Annonces actives", value: stats?.activeAnnonces ?? annonces.filter(a => a.status === "ACTIVE").length, icon: Package, color: "text-brand", bg: "bg-primary-50" },
+              { label: "Annonces publiées", value: stats?.publishedAnnonces ?? annonces.filter(a => a.status === "ACTIVE").length, icon: Package, color: "text-brand", bg: "bg-primary-50" },
               { label: "Commandes totales", value: stats?.totalOrders ?? "—", icon: ShoppingBag, color: "text-success", bg: "bg-success-light" },
-              { label: "Revenus du mois", value: stats ? formatPrice(stats.monthlyRevenue) : "—", icon: TrendingUp, color: "text-gold", bg: "bg-accent-100" },
+              { label: "Revenus totaux", value: stats ? formatPrice(stats.totalRevenueCents / 100) : "—", icon: TrendingUp, color: "text-gold", bg: "bg-accent-100" },
               { label: "Membres équipe", value: members.length, icon: Users, color: "text-brand", bg: "bg-primary-50" },
             ].map(({ label, value, icon: Icon, color, bg }) => (
               <div key={label} className="bg-white rounded-2xl border border-border p-4 flex items-center gap-3">
@@ -214,15 +215,15 @@ export function BoutiqueView({ initialData, tab, annonceStatus }: BoutiqueViewPr
                 {annonces.slice(0, 5).map((a) => (
                   <li key={a.id} className="flex items-center gap-3 px-5 py-3 hover:bg-background transition-colors">
                     <div className="w-9 h-9 rounded-lg bg-primary-50 flex items-center justify-center shrink-0 overflow-hidden">
-                      {a.images?.[0]
+                      {getAnnonceImageUrl(a)
                         // eslint-disable-next-line @next/next/no-img-element
-                        ? <img src={a.images[0]} alt="" className="w-full h-full object-cover" />
+                        ? <img src={getAnnonceImageUrl(a)} alt="" className="w-full h-full object-cover" />
                         : <Package className="w-4 h-4 text-primary-300" />
                       }
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-text-primary truncate">{a.title}</p>
-                      <p className="text-xs text-text-secondary">{formatPrice(a.price)}</p>
+                      <p className="text-xs text-text-secondary">{formatPrice(getAnnoncePriceXAF(a))}</p>
                     </div>
                     <Badge variant={STATUS_VARIANTS[a.status] ?? "neutral"}>
                       {STATUS_LABELS[a.status] ?? a.status}
@@ -296,16 +297,16 @@ export function BoutiqueView({ initialData, tab, annonceStatus }: BoutiqueViewPr
                 {annonces.map((a) => (
                   <li key={a.id} className="flex items-center gap-3 px-5 py-3.5 hover:bg-background transition-colors">
                     <div className="w-12 h-12 rounded-xl bg-primary-50 shrink-0 overflow-hidden">
-                      {a.images?.[0]
+                      {getAnnonceImageUrl(a)
                         // eslint-disable-next-line @next/next/no-img-element
-                        ? <img src={a.images[0]} alt="" className="w-full h-full object-cover" />
+                        ? <img src={getAnnonceImageUrl(a)} alt="" className="w-full h-full object-cover" />
                         : <div className="w-full h-full flex items-center justify-center"><Package className="w-6 h-6 text-primary-300" /></div>
                       }
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-text-primary truncate">{a.title}</p>
                       <div className="flex items-center gap-2 mt-0.5 text-xs text-text-secondary">
-                        <span className="font-bold text-brand">{formatPrice(a.price)}</span>
+                        <span className="font-bold text-brand">{formatPrice(getAnnoncePriceXAF(a))}</span>
                         <span className="flex items-center gap-0.5"><MapPin className="w-3 h-3" />{a.city}</span>
                       </div>
                     </div>
@@ -343,16 +344,16 @@ export function BoutiqueView({ initialData, tab, annonceStatus }: BoutiqueViewPr
       )}
 
       {/* ── Équipe ──────────────────────────────────────────── */}
-      {tab === "equipe" && <ShopEquipe shopId={shop.id} members={members} />}
+      {tab === "equipe" && <ShopEquipe shopId={shop.id} members={members} memberNames={memberNames} />}
 
       {/* ── Abonnement ──────────────────────────────────────── */}
-      {tab === "abonnement" && <ShopAbonnement shopId={shop.id} currentPlan={shop.subscription} />}
+      {tab === "abonnement" && <ShopAbonnement shopId={shop.id} currentPlan={shop.plan} />}
 
       {/* ── Paramètres ──────────────────────────────────────── */}
       {tab === "parametres" && (
         <div className="space-y-6">
           <div className="bg-white rounded-2xl border border-border p-5">
-            <LogoUpload shopId={shop.id} currentLogo={shop.logoUrl} shopName={shop.name} />
+            <LogoUpload shopId={shop.id} currentLogo={shop.logoUrl ?? undefined} shopName={shop.name} />
           </div>
           <ShopParametres shopId={shop.id} name={shop.name} description={shop.description} />
         </div>
