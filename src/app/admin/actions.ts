@@ -32,6 +32,18 @@ export async function fetchAdminUsers(qs: string): Promise<PaginatedResponse<Adm
   return serverGet<PaginatedResponse<AdminUser>>(`/admin/users?${qs}`, 0);
 }
 
+/**
+ * `GET /admin/users/:id` doesn't exist (404 — confirmed 2026-07-24, same gap
+ * as `GET /admin/shops/:id`/`GET /admin/tickets/:id` had before those were
+ * fixed, cf. HANDOFF_INFRA.md). Best-effort fallback: scan `GET /admin/users`
+ * for a matching id — reliable at today's scale (~15 seeded accounts) but NOT
+ * guaranteed once the user base grows past this page size.
+ */
+export async function fetchAdminUserById(id: string): Promise<AdminUser | null> {
+  const list = await serverGet<PaginatedResponse<AdminUser>>("/admin/users?limit=200", 0);
+  return list.items.find((u) => u.id === id) ?? null;
+}
+
 export async function fetchAdminShops(qs: string): Promise<PaginatedResponse<Shop>> {
   return serverGet<PaginatedResponse<Shop>>(`/admin/shops?${qs}`, 0);
 }
@@ -240,8 +252,9 @@ export async function approveKyc(userId: string) {
   revalidatePath("/admin/users");
 }
 
-export async function rejectKyc(userId: string) {
-  await serverPost(`/admin/users/${userId}/kyc/reject`);
+/** `RejectKycDto` requires a non-empty `reason` — omitting it 400s every time (confirmed, cf. HANDOFF_INFRA.md). */
+export async function rejectKyc(userId: string, reason: string) {
+  await serverPost(`/admin/users/${userId}/kyc/reject`, { reason });
   revalidatePath("/admin/users");
 }
 

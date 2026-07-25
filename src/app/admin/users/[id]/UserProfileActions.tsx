@@ -2,9 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { approveKyc, rejectKyc, suspendUser, unsuspendUser, changeUserRole } from "../../actions";
+import { approveKyc, rejectKyc, suspendUser, unsuspendUser, changeUserRole, fetchAdminUserById } from "../../actions";
 import { Button } from "@/components/ui/Button";
-import type { KycStatus, UserRole } from "@/types/api";
+import { usePolledData } from "@/hooks/usePolledData";
+import type { AdminUser, UserRole } from "@/types/api";
 
 const ROLES: Array<{ value: UserRole; label: string }> = [
   { value: "BUYER",           label: "Acheteur" },
@@ -21,15 +22,25 @@ const ROLES: Array<{ value: UserRole; label: string }> = [
 
 interface UserProfileActionsProps {
   userId: string;
-  kycStatus: KycStatus;
-  isSuspended: boolean;
-  primaryRole: UserRole;
+  initialUser: AdminUser;
 }
 
-export function UserProfileActions({ userId, kycStatus, isSuspended, primaryRole }: UserProfileActionsProps) {
+export function UserProfileActions({ userId, initialUser }: UserProfileActionsProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [showRoleChange, setShowRoleChange] = useState(false);
+  const [documentError, setDocumentError] = useState(false);
+
+  const { data: user } = usePolledData(["admin-user", userId], () => fetchAdminUserById(userId), initialUser);
+
+  const kycStatus = user?.kycStatus ?? "NOT_SUBMITTED";
+  const isSuspended = user?.status === "SUSPENDED";
+  const primaryRole: UserRole = (
+    user?.roles.find((r) => ["SUPER_ADMIN", "ADMIN", "FINANCE", "SUPPORT", "ACCOUNT_MANAGER"].includes(r)) ??
+    user?.roles.find((r) => ["PRO_SELLER", "SELLER"].includes(r)) ??
+    "BUYER"
+  );
+  const hasSubmittedDocument = kycStatus !== "NOT_SUBMITTED";
 
   function run(action: () => Promise<void>) {
     startTransition(async () => { await action(); router.refresh(); });
@@ -38,6 +49,23 @@ export function UserProfileActions({ userId, kycStatus, isSuspended, primaryRole
   return (
     <div className="space-y-3">
       {/* KYC */}
+      {(kycStatus === "PENDING" || kycStatus === "REJECTED" || kycStatus === "EXPIRED") && hasSubmittedDocument && (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide">Document soumis</p>
+          {documentError ? (
+            <p className="text-xs text-text-disabled italic">Document indisponible.</p>
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={`/api/admin/kyc-document/${userId}`}
+              alt="Document d'identité soumis"
+              className="w-full rounded-xl border border-border object-contain max-h-64"
+              onError={() => setDocumentError(true)}
+            />
+          )}
+        </div>
+      )}
+
       {kycStatus === "PENDING" && (
         <div className="space-y-2">
           <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide">Vérification KYC</p>
@@ -47,7 +75,10 @@ export function UserProfileActions({ userId, kycStatus, isSuspended, primaryRole
               ✓ Approuver KYC
             </Button>
             <Button size="sm" variant="secondary" loading={pending} className="flex-1 text-error border-error hover:bg-error-light"
-              onClick={() => { if (confirm("Rejeter le KYC ?")) run(() => rejectKyc(userId)); }}>
+              onClick={() => {
+                const reason = prompt("Motif du rejet KYC :");
+                if (reason?.trim()) run(() => rejectKyc(userId, reason.trim()));
+              }}>
               ✗ Rejeter KYC
             </Button>
           </div>
@@ -56,6 +87,11 @@ export function UserProfileActions({ userId, kycStatus, isSuspended, primaryRole
       {kycStatus === "APPROVED" && (
         <div className="flex items-center gap-2 p-3 rounded-xl bg-success-light text-success text-sm font-medium">
           <span>✓</span> Identité vérifiée
+        </div>
+      )}
+      {kycStatus === "EXPIRED" && (
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-error-light text-error text-sm font-medium">
+          <span>!</span> Document expiré
         </div>
       )}
 

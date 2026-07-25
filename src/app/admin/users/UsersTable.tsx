@@ -15,6 +15,7 @@ const KYC_CONFIG: Record<KycStatus, { label: string; variant: "success" | "warni
   APPROVED:      { label: "KYC ✓",       variant: "success" },
   PENDING:       { label: "KYC…",        variant: "warning" },
   REJECTED:      { label: "KYC ✗",       variant: "error" },
+  EXPIRED:       { label: "KYC expiré",  variant: "error" },
   NOT_SUBMITTED: { label: "Non vérifié", variant: "neutral" },
 };
 

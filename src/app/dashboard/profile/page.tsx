@@ -2,9 +2,10 @@ import { unstable_rethrow } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { serverGet } from "@/infrastructure/http/ApiServer";
 import { Badge } from "@/components/ui/Badge";
-import { Phone, Shield, CheckCircle, Clock, Calendar, User } from "lucide-react";
+import { Phone, Calendar, User } from "lucide-react";
 import { EditProfileForm } from "./EditProfileForm";
-import { KycForm } from "./KycForm";
+import { KycBadgeRow } from "./KycBadgeRow";
+import { KycStatusPanel } from "./KycStatusPanel";
 import type { MyProfile } from "@/types/api";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -24,7 +25,6 @@ export default async function ProfilePage() {
   const name      = profile?.displayName ?? "Utilisateur";
   /* phoneNumber from GET /users/me is already masked (e.g. "+235••••••23") — display as-is. */
   const phone     = profile?.phoneNumber ?? "";
-  const isKyc     = profile?.isKYCVerified ?? false;
   const createdAt = profile?.createdAt;
 
   return (
@@ -58,19 +58,7 @@ export default async function ProfilePage() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3 px-6 py-4">
-            <Shield className="w-4 h-4 text-text-disabled shrink-0" />
-            <div className="flex-1">
-              <p className="text-xs text-text-secondary">Vérification KYC</p>
-              <div className="flex items-center gap-2 mt-0.5">
-                {isKyc ? (
-                  <><CheckCircle className="w-4 h-4 text-success" /><span className="text-sm font-medium text-success">Identité vérifiée</span></>
-                ) : (
-                  <><Clock className="w-4 h-4 text-warning" /><span className="text-sm font-medium text-warning">Non vérifié</span></>
-                )}
-              </div>
-            </div>
-          </div>
+          <KycBadgeRow initialProfile={profile} />
           {createdAt && (
             <div className="flex items-center gap-3 px-6 py-4">
               <Calendar className="w-4 h-4 text-text-disabled shrink-0" />
@@ -95,36 +83,7 @@ export default async function ProfilePage() {
       </div>
 
       {/* KYC */}
-      {isKyc ? (
-        <div className="flex items-center gap-3 p-5 rounded-2xl bg-success-light border border-success">
-          <CheckCircle className="w-5 h-5 text-success shrink-0" />
-          <div>
-            <p className="text-sm font-semibold text-text-primary">Identité vérifiée</p>
-            <p className="text-xs text-text-secondary mt-0.5">Votre identité a été vérifiée. Cela renforce la confiance avec les autres utilisateurs.</p>
-          </div>
-        </div>
-      ) : (
-        <div className="bg-white rounded-2xl border border-border overflow-hidden">
-          <div className="flex items-center gap-2 px-6 py-4 border-b border-border bg-warning-light">
-            <Shield className="w-4 h-4 text-warning" />
-            <h3 className="font-semibold text-amber-800 text-sm">Vérifiez votre identité (KYC)</h3>
-          </div>
-          <div className="p-6 space-y-4">
-            <p className="text-sm text-text-secondary leading-relaxed">
-              La vérification KYC est <strong>gratuite</strong>, prend 2 minutes, et débloque le badge de confiance sur vos annonces.
-            </p>
-            <ul className="text-sm text-text-secondary space-y-1.5">
-              {["Pièce d'identité nationale ou passeport", "Selfie tenant votre pièce d'identité"].map((item) => (
-                <li key={item} className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-primary-100 text-brand text-xs flex items-center justify-center font-bold shrink-0">✓</span>
-                  {item}
-                </li>
-              ))}
-            </ul>
-            <KycForm />
-          </div>
-        </div>
-      )}
+      <KycStatusPanel initialProfile={profile} />
     </div>
   );
 }

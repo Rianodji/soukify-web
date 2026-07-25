@@ -8,34 +8,19 @@ import { Badge } from "@/components/ui/Badge";
 import { serverGet } from "@/infrastructure/http/ApiServer";
 import { formatPrice, formatPhoneDisplay } from "@/lib/utils";
 import { getAnnoncePriceXAF, getAnnonceImageUrl } from "@/lib/annonce";
+import { fetchAdminUserById } from "../../actions";
 import { UserProfileActions } from "./UserProfileActions";
-import type { AdminUser, Annonce, PaginatedResponse, PublicUserProfile, Review, UserScore, KycStatus, UserRole } from "@/types/api";
+import { KycHeaderBadge } from "./KycHeaderBadge";
+import type { Annonce, PaginatedResponse, PublicUserProfile, Review, UserScore, UserRole } from "@/types/api";
 
-/**
- * `GET /admin/users/:id` doesn't exist (404 — confirmed 2026-07-24, same gap
- * as `GET /admin/shops/:id` and `GET /admin/tickets/:id`, cf. HANDOFF_INFRA.md).
- * Best-effort fallback: scan `GET /admin/users` for a matching id — reliable
- * at today's scale (~15 seeded accounts) but NOT guaranteed once the user
- * base grows past whatever page size is fetched here. Returns `null` rather
- * than assuming the user doesn't exist, so the page can say so honestly
- * instead of a misleading 404.
- */
-async function fetchUser(id: string): Promise<AdminUser | null> {
+async function fetchUser(id: string) {
   try {
-    const list = await serverGet<PaginatedResponse<AdminUser>>("/admin/users?limit=200", 0);
-    return list.items.find((u) => u.id === id) ?? null;
+    return await fetchAdminUserById(id);
   } catch (e) {
     unstable_rethrow(e);
     return null;
   }
 }
-
-const KYC_CONFIG: Record<KycStatus, { label: string; variant: "success" | "warning" | "error" | "neutral" }> = {
-  APPROVED:      { label: "KYC vérifié",    variant: "success" },
-  PENDING:       { label: "KYC en attente", variant: "warning" },
-  REJECTED:      { label: "KYC rejeté",     variant: "error" },
-  NOT_SUBMITTED: { label: "Non vérifié",    variant: "neutral" },
-};
 
 const ROLE_LABELS: Record<string, string> = {
   BUYER: "Acheteur", SELLER: "Vendeur", PRO_SELLER: "Vendeur Pro",
@@ -91,7 +76,6 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
     );
   }
 
-  const kyc = KYC_CONFIG[user.kycStatus ?? "NOT_SUBMITTED"];
   const isSuspended = user.status === "SUSPENDED";
   const annonces = annoncesRes?.items ?? [];
   const isSeller = user.roles.some((r) => ["SELLER", "PRO_SELLER"].includes(r));
@@ -129,7 +113,7 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl font-bold text-text-primary">{user.displayName}</h1>
               {isSuspended && <Badge variant="error">Suspendu</Badge>}
-              <Badge variant={kyc.variant}>{kyc.label}</Badge>
+              <KycHeaderBadge userId={user.id} initialUser={user} />
             </div>
 
             <div className="flex flex-wrap gap-3 text-sm text-text-secondary">
@@ -277,12 +261,7 @@ export default async function AdminUserDetailPage({ params }: UserDetailPageProp
           {/* Actions */}
           <div className="bg-white rounded-2xl border border-border p-5">
             <h2 className="font-semibold text-text-primary text-sm mb-4">Actions administrateur</h2>
-            <UserProfileActions
-              userId={user.id}
-              kycStatus={user.kycStatus ?? "NOT_SUBMITTED"}
-              isSuspended={isSuspended}
-              primaryRole={primaryRole}
-            />
+            <UserProfileActions userId={user.id} initialUser={user} />
           </div>
 
           {/* Score */}

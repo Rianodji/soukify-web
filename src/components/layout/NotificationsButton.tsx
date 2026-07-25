@@ -24,6 +24,8 @@ function getHref(n: AppNotification): string {
       return "/dashboard/boutique";
     case "KYC_APPROVED":
     case "KYC_REJECTED":
+    case "KYC_EXPIRING_SOON":
+    case "KYC_EXPIRED":
       return "/dashboard/profile";
     case "ANNONCE_EXPIRED":
       return data.annonceId ? `/dashboard/annonces/${data.annonceId}` : "/dashboard/annonces";

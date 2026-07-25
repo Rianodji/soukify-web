@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 import { serverGet, serverPost, serverPatch, serverDelete, serverUpload } from "@/infrastructure/http/ApiServer";
-import type { Annonce, NotificationsResponse, Order, PaginatedResponse, Shop, ShopStats, ShopSubscription } from "@/types/api";
+import type { Annonce, MyProfile, NotificationsResponse, Order, PaginatedResponse, Shop, ShopStats, ShopSubscription } from "@/types/api";
 
 /**
  * `Promise.allSettled`/`.catch()` capture rejections instead of propagating
@@ -21,6 +21,10 @@ function rethrowIfRedirected(results: PromiseSettledResult<unknown>[]): void {
 /* ── Polled list fetchers (used by client components via SWR) ──────────
  * Same httpOnly-cookie-only model as admin/actions.ts — client components
  * poll these Server Actions instead of hitting the external API directly. */
+
+export async function fetchMyProfile(): Promise<MyProfile | null> {
+  return serverGet<MyProfile>("/users/me", 0).catch((e: unknown) => { unstable_rethrow(e); return null; });
+}
 
 export async function fetchMyOrders(qs: string): Promise<PaginatedResponse<Order>> {
   return serverGet<PaginatedResponse<Order>>(`/orders?${qs}`, 0);

@@ -41,7 +41,10 @@ export function UserActions({ userId, isSuspended, kycStatus, primaryRole }: Use
               ✓ KYC
             </Button>
             <Button size="sm" variant="secondary" loading={pending}
-              onClick={() => startTransition(() => rejectKyc(userId))}
+              onClick={() => {
+                const reason = prompt("Motif du rejet KYC :");
+                if (reason?.trim()) startTransition(() => rejectKyc(userId, reason.trim()));
+              }}
               className="text-error border-error hover:bg-error-light text-xs h-7 px-2">
               ✗ KYC
             </Button>

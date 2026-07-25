@@ -95,7 +95,7 @@ export interface MyProfile {
   displayName: string;
   roles: UserRole[];
   status: AccountStatus;
-  kycStatus: string;
+  kycStatus: KycStatus;
   trustScore: number;
   isKYCVerified: boolean;
   canSell: boolean;
@@ -200,7 +200,13 @@ export interface PaginatedResponse<T> {
 }
 
 /* ── Admin ──────────────────────────────────────────────── */
-export type KycStatus = "NOT_SUBMITTED" | "PENDING" | "APPROVED" | "REJECTED";
+/**
+ * `EXPIRED` added 2026-07-25 (cf. HANDOFF_INFRA.md) — an `APPROVED` account
+ * automatically falls back to `EXPIRED` the night `expirationDate` passes
+ * (cron job), with `canSell`/`isKYCVerified` reset to `false`. Like
+ * `REJECTED`, the user can resubmit from this state.
+ */
+export type KycStatus = "NOT_SUBMITTED" | "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED";
 
 /**
  * `GET /admin/users` — confirmed against real seeded accounts (2026-07-24),
@@ -394,7 +400,8 @@ export interface UserScore {
 export type NotificationType =
   | "ORDER_CREATED" | "ORDER_CONFIRMED" | "ORDER_COMPLETED" | "ORDER_CANCELLED"
   | "DISPUTE_OPENED" | "SHOP_APPROVED" | "SHOP_REJECTED" | "SHOP_SUSPENDED"
-  | "KYC_APPROVED" | "KYC_REJECTED" | "TICKET_RESOLVED" | "ANNONCE_EXPIRED";
+  | "KYC_APPROVED" | "KYC_REJECTED" | "KYC_EXPIRING_SOON" | "KYC_EXPIRED"
+  | "TICKET_RESOLVED" | "ANNONCE_EXPIRED";
 
 export interface AppNotification {
   id: string;

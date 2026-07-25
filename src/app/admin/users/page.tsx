@@ -65,6 +65,7 @@ export default async function AdminUsersPage({ searchParams }: UsersPageProps) {
                 { value: "PENDING",  label: "KYC en attente" },
                 { value: "APPROVED", label: "KYC approuvé" },
                 { value: "REJECTED", label: "KYC rejeté" },
+                { value: "EXPIRED",  label: "KYC expiré" },
                 { value: "NOT_SUBMITTED", label: "Non soumis" },
               ],
             },

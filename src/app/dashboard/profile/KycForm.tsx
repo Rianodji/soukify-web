@@ -4,25 +4,40 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Upload, CheckCircle, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { submitKyc } from "../actions";
+
+const DOCUMENT_TYPES = [
+  { value: "CNI",      label: "Carte nationale d'identité" },
+  { value: "PASSPORT", label: "Passeport" },
+];
+
+const todayISO = () => new Date().toISOString().split("T")[0];
 
 export function KycForm() {
   const router = useRouter();
-  const idFileRef   = useRef<HTMLInputElement>(null);
-  const selfieRef   = useRef<HTMLInputElement>(null);
-  const [idFile,   setIdFile]   = useState<File | null>(null);
-  const [selfie,   setSelfie]   = useState<File | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [documentType, setDocumentType] = useState("CNI");
+  const [documentNumber, setDocumentNumber] = useState("");
+  const [issueDate, setIssueDate] = useState("");
+  const [expirationDate, setExpirationDate] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [pending, startTransition] = useTransition();
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const canSubmit = !!file && documentNumber.trim().length >= 4 && !!issueDate && !!expirationDate;
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!idFile || !selfie) return;
+    if (!canSubmit || !file) return;
     setError(null);
     const formData = new FormData();
-    formData.append("idDocument", idFile);
-    formData.append("selfie", selfie);
+    formData.append("documentType", documentType);
+    formData.append("documentNumber", documentNumber.trim());
+    formData.append("issueDate", issueDate);
+    formData.append("expirationDate", expirationDate);
+    formData.append("file", file);
     startTransition(async () => {
       try {
         await submitKyc(formData);
@@ -55,52 +70,74 @@ export function KycForm() {
         </div>
       )}
 
-      {/* ID document */}
+      {/* Document type */}
       <div className="space-y-1.5">
-        <label className="text-xs font-medium text-text-secondary">Pièce d&apos;identité *</label>
-        <button
-          type="button"
-          onClick={() => idFileRef.current?.click()}
-          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-dashed transition-colors text-left ${
-            idFile ? "border-brand bg-primary-50" : "border-border hover:border-brand"
-          }`}
+        <label className="text-xs font-medium text-text-secondary">Type de document *</label>
+        <select
+          value={documentType}
+          onChange={(e) => setDocumentType(e.target.value)}
+          className="w-full h-10 px-3 rounded-xl border border-border bg-white text-sm text-text-primary focus:outline-none focus:border-brand"
         >
-          <Upload className={`w-5 h-5 shrink-0 ${idFile ? "text-brand" : "text-text-disabled"}`} />
-          <span className={`text-sm ${idFile ? "text-brand font-medium" : "text-text-disabled"}`}>
-            {idFile ? idFile.name : "Sélectionner votre pièce d'identité"}
-          </span>
-        </button>
-        <input ref={idFileRef} type="file" accept="image/*,application/pdf" className="sr-only"
-          onChange={(e) => setIdFile(e.target.files?.[0] ?? null)} />
+          {DOCUMENT_TYPES.map((d) => (
+            <option key={d.value} value={d.value}>{d.label}</option>
+          ))}
+        </select>
       </div>
 
-      {/* Selfie */}
+      {/* Document number */}
+      <Input
+        label="Numéro du document *"
+        value={documentNumber}
+        onChange={(e) => setDocumentNumber(e.target.value)}
+        placeholder="Ex : 1234567890"
+        minLength={4}
+        maxLength={50}
+        required
+      />
+
+      {/* Dates */}
+      <div className="grid grid-cols-2 gap-3">
+        <Input
+          type="date"
+          label="Date de délivrance *"
+          value={issueDate}
+          onChange={(e) => setIssueDate(e.target.value)}
+          max={todayISO()}
+          required
+        />
+        <Input
+          type="date"
+          label="Date d'expiration *"
+          value={expirationDate}
+          onChange={(e) => setExpirationDate(e.target.value)}
+          min={todayISO()}
+          required
+        />
+      </div>
+
+      {/* Document file */}
       <div className="space-y-1.5">
-        <label className="text-xs font-medium text-text-secondary">Selfie avec votre pièce *</label>
+        <label className="text-xs font-medium text-text-secondary">Photo du document *</label>
         <button
           type="button"
-          onClick={() => selfieRef.current?.click()}
+          onClick={() => fileRef.current?.click()}
           className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-dashed transition-colors text-left ${
-            selfie ? "border-brand bg-primary-50" : "border-border hover:border-brand"
+            file ? "border-brand bg-primary-50" : "border-border hover:border-brand"
           }`}
         >
-          <Upload className={`w-5 h-5 shrink-0 ${selfie ? "text-brand" : "text-text-disabled"}`} />
-          <span className={`text-sm ${selfie ? "text-brand font-medium" : "text-text-disabled"}`}>
-            {selfie ? selfie.name : "Prendre / sélectionner un selfie"}
+          <Upload className={`w-5 h-5 shrink-0 ${file ? "text-brand" : "text-text-disabled"}`} />
+          <span className={`text-sm ${file ? "text-brand font-medium" : "text-text-disabled"}`}>
+            {file ? file.name : "Sélectionner une photo de votre document"}
           </span>
         </button>
-        <input ref={selfieRef} type="file" accept="image/*" capture="user" className="sr-only"
-          onChange={(e) => setSelfie(e.target.files?.[0] ?? null)} />
+        <input ref={fileRef} type="file" accept="image/*" className="sr-only"
+          onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
       </div>
 
       <Button type="submit" size="md" className="w-full" loading={pending}
-        disabled={!idFile || !selfie}>
+        disabled={!canSubmit}>
         Soumettre pour vérification
       </Button>
-
-      <p className="text-xs text-text-disabled text-center">
-        Vos documents sont chiffrés et supprimés après vérification.
-      </p>
     </form>
   );
 }
