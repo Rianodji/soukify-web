@@ -131,7 +131,17 @@ export function KycForm() {
           </span>
         </button>
         <input ref={fileRef} type="file" accept="image/*" className="sr-only"
-          onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+          onChange={(e) => {
+            const f = e.target.files?.[0] ?? null;
+            if (f && f.size > 5 * 1024 * 1024) {
+              setError("Le fichier ne doit pas dépasser 5 Mo.");
+              e.target.value = "";
+              setFile(null);
+              return;
+            }
+            setError(null);
+            setFile(f);
+          }} />
       </div>
 
       <Button type="submit" size="md" className="w-full" loading={pending}
