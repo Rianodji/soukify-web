@@ -17,6 +17,7 @@ export function AuthenticatedDocumentImage({ src, alt }: AuthenticatedDocumentIm
   const [state, setState] = useState<
     { status: "loading" } | { status: "ok"; url: string } | { status: "error"; message: string }
   >({ status: "loading" });
+  const [decodeFailed, setDecodeFailed] = useState(false);
 
   useEffect(() => {
     let objectUrl: string | null = null;
@@ -65,6 +66,20 @@ export function AuthenticatedDocumentImage({ src, alt }: AuthenticatedDocumentIm
     return <p className="text-xs text-text-disabled italic">{state.message}</p>;
   }
 
-  // eslint-disable-next-line @next/next/no-img-element
-  return <img src={state.url} alt={alt} className="w-full rounded-xl border border-border object-contain max-h-64" />;
+  if (decodeFailed) {
+    return <p className="text-xs text-text-disabled italic">Le fichier reçu n&apos;est pas une image valide.</p>;
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={state.url}
+      alt={alt}
+      className="w-full rounded-xl border border-border object-contain max-h-64"
+      /* The proxy can return 200 with bytes the browser can't decode as an
+       * image (e.g. a stored file that isn't actually a photo) — `fetch`
+       * alone can't catch this, only the `<img>` decode step can. */
+      onError={() => setDecodeFailed(true)}
+    />
+  );
 }
