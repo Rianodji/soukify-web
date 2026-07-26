@@ -163,9 +163,15 @@ export async function createAnnonce(data: {
   city: string;
   shopId?: string;
 }): Promise<{ id: string }> {
-  const annonce = await serverPost<Annonce>("/annonces", data);
+  /* POST /annonces returns { annonceId }, not the full Annonce object —
+   * this previously read `.id` (always undefined), so createAnnonce()
+   * silently returned { id: undefined }. Harmless for "save as draft"
+   * (the id is never used), but "publish now" then called
+   * publishAnnonce(undefined) -> POST /annonces/undefined/publish, which
+   * crashed uncaught in production (cf. HANDOFF_INFRA.md, 2026-07-27). */
+  const res = await serverPost<{ annonceId: string }>("/annonces", data);
   revalidatePath("/dashboard/annonces");
-  return { id: annonce.id };
+  return { id: res.annonceId };
 }
 
 export async function publishAnnonce(id: string) {
@@ -175,10 +181,16 @@ export async function publishAnnonce(id: string) {
 
 /* ── Boutique PRO ────────────────────────────────────────── */
 
-export async function createShop(data: { name: string; description?: string }): Promise<{ id: string }> {
-  const shop = await serverPost<Shop>("/pro/shops", data);
+/**
+ * `SubmitProRequestDto` requires `name`, `slug`, `city` (not just `name`/
+ * `description`) — omitting `slug`/`city` 400s. Response is
+ * `{ shopId, message }`, not the full `Shop` object (same class of bug as
+ * `createAnnonce` — cf. HANDOFF_INFRA.md, 2026-07-27).
+ */
+export async function createShop(data: { name: string; slug: string; city: string; description?: string }): Promise<{ id: string }> {
+  const res = await serverPost<{ shopId: string }>("/pro/shops", data);
   revalidatePath("/dashboard/boutique");
-  return { id: shop.id };
+  return { id: res.shopId };
 }
 
 export async function updateShop(shopId: string, data: { name?: string; description?: string }) {

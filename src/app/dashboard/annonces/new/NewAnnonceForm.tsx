@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { cn } from "@/lib/utils";
 import { CHAD_CITIES, ANNONCE_CONDITIONS, CATEGORY_STYLE, DEFAULT_CATEGORY_STYLE } from "@/lib/constants";
-import { createAnnonce, publishAnnonce } from "../../actions";
+import { createAnnonce } from "../../actions";
 import type { Category } from "@/types/api";
 
 const schema = z.object({
@@ -45,12 +45,18 @@ export function NewAnnonceForm({ categories, shopId }: NewAnnonceFormProps) {
 
   const type = watch("type");
 
-  const [publishNow, setPublishNow] = useState(false);
-
   /**
    * `CreateAnnonceDto` requires `priceXAF` (not `price`) and `negotiable`
    * (never sent before) — every submission through this form 400'd until
    * this fix (cf. HANDOFF_INFRA.md, 2026-07-26).
+   *
+   * No "publish immediately" option: `POST /annonces/:id/publish` rejects
+   * an annonce with no photo ("Au moins une photo est requise..."), and
+   * this form never collects one (photos are added on the annonce's own
+   * management page after creation) — a "Publier maintenant" button here
+   * could never actually succeed. Redirect straight to that management
+   * page instead, where the next step (add a photo, then publish) is
+   * right there (cf. HANDOFF_INFRA.md, 2026-07-27).
    */
   const submitForm = handleSubmit((data: FormData) => {
     setError(null);
@@ -67,8 +73,7 @@ export function NewAnnonceForm({ categories, shopId }: NewAnnonceFormProps) {
           city:        data.city,
           shopId,
         });
-        if (publishNow) await publishAnnonce(id);
-        router.push(shopId ? "/dashboard/boutique?tab=annonces" : "/dashboard/annonces");
+        router.push(`/dashboard/annonces/${id}`);
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : "Une erreur est survenue.");
       }
@@ -237,32 +242,15 @@ export function NewAnnonceForm({ categories, shopId }: NewAnnonceFormProps) {
           <div className="flex items-start gap-3 p-3 rounded-xl bg-primary-50 border border-primary-100">
             <Package className="w-4 h-4 text-brand shrink-0 mt-0.5" />
             <p className="text-xs text-text-secondary">
-              Les photos peuvent être ajoutées depuis la page de gestion de votre annonce après création.
+              Ajoutez au moins une photo depuis la page de gestion de votre annonce pour pouvoir la publier — une annonce sans photo ne peut pas être mise en ligne.
             </p>
           </div>
         </div>
 
         {/* Actions */}
-        <div className="p-5 flex flex-col sm:flex-row gap-3">
-          <Button
-            type="submit"
-            variant="secondary"
-            size="lg"
-            className="flex-1"
-            loading={pending && !publishNow}
-            onClick={() => setPublishNow(false)}
-          >
-            Enregistrer en brouillon
-          </Button>
-          <Button
-            type="submit"
-            variant="gold"
-            size="lg"
-            className="flex-1"
-            loading={pending && publishNow}
-            onClick={() => setPublishNow(true)}
-          >
-            Publier maintenant
+        <div className="p-5">
+          <Button type="submit" variant="gold" size="lg" className="w-full" loading={pending}>
+            Créer l&apos;annonce
           </Button>
         </div>
       </form>

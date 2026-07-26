@@ -1,5 +1,4 @@
-import { redirect, unstable_rethrow } from "next/navigation";
-import { getSession } from "@/lib/session";
+import { unstable_rethrow } from "next/navigation";
 import { BoutiqueView } from "./BoutiqueView";
 import { fetchBoutiqueData, type BoutiqueData } from "../actions";
 
@@ -9,10 +8,14 @@ interface BoutiquePageProps {
   searchParams: Promise<{ tab?: Tab; status?: string }>;
 }
 
+/**
+ * No `PRO_SELLER` session gate — same stale-JWT-role issue as
+ * /dashboard/annonces and /dashboard/wallet (cf. HANDOFF_INFRA.md,
+ * 2026-07-27). A buyer whose shop was just approved would have this page
+ * redirect them away right when they most want to see it. `BoutiqueView`
+ * already renders `CreateShopForm` gracefully when `shop` is null.
+ */
 export default async function BoutiquePage({ searchParams }: BoutiquePageProps) {
-  const session = await getSession();
-  if (!session?.roles.includes("PRO_SELLER")) redirect("/dashboard");
-
   const sp = await searchParams;
   const tab = sp.tab ?? "apercu";
   const annonceStatus = sp.status ?? "";

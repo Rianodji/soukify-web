@@ -27,16 +27,20 @@ const NAV_ITEMS: NavItem[] = [
     icon: LayoutDashboard,
   },
   {
+    /* No `roles` restriction on purpose — the JWT's roles claim only
+     * refreshes on login, so a buyer whose KYC was just approved (SELLER
+     * granted server-side) would have this link hidden by a stale session
+     * right after successfully creating their first annonce, with no way
+     * to find it (cf. HANDOFF_INFRA.md, 2026-07-27). */
     href: "/dashboard/annonces",
     label: "Mes annonces",
     icon: Package,
-    roles: ["SELLER", "PRO_SELLER"],
   },
   {
+    /* No `roles` restriction — same stale-JWT-role issue as above. */
     href: "/dashboard/boutique",
     label: "Ma boutique",
     icon: Store,
-    roles: ["PRO_SELLER"],
   },
   {
     href: "/dashboard/orders",
@@ -49,10 +53,10 @@ const NAV_ITEMS: NavItem[] = [
     icon: MessageSquare,
   },
   {
+    /* No `roles` restriction — same stale-JWT-role issue as "Mes annonces" above. */
     href: "/dashboard/wallet",
     label: "Mon portefeuille",
     icon: Wallet,
-    roles: ["SELLER", "PRO_SELLER"],
   },
   {
     href: "/dashboard/profile",

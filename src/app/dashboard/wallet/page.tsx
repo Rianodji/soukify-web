@@ -1,6 +1,5 @@
 import { serverGet } from "@/infrastructure/http/ApiServer";
-import { getSession, isSeller } from "@/lib/session";
-import { redirect, unstable_rethrow } from "next/navigation";
+import { unstable_rethrow } from "next/navigation";
 import { Wallet, ArrowUpRight, ArrowDownLeft, TrendingUp } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
 
@@ -14,10 +13,13 @@ interface WalletData {
   }>;
 }
 
+/**
+ * No `isSeller(session)` gate — same stale-JWT-role issue as
+ * /dashboard/annonces (cf. HANDOFF_INFRA.md, 2026-07-27). Already handled
+ * gracefully below (empty-wallet state) if `/wallet` errors for a
+ * non-seller, so the redirect was pure downside with no safety benefit.
+ */
 export default async function WalletPage() {
-  const session = await getSession();
-  if (!isSeller(session)) redirect("/dashboard");
-
   let wallet: WalletData | null = null;
   try {
     wallet = await serverGet<WalletData>("/wallet", 0);

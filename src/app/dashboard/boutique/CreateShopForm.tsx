@@ -5,22 +5,40 @@ import { useRouter } from "next/navigation";
 import { Store, AlertCircle, Clock } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { CHAD_CITIES } from "@/lib/constants";
 import { createShop } from "../actions";
+
+function slugify(value: string): string {
+  return value
+    .normalize("NFD").replace(/[̀-ͯ]/g, "") // strip accents
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 50);
+}
 
 export function CreateShopForm() {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
+  const [slug, setSlug] = useState("");
+  const [slugTouched, setSlugTouched] = useState(false);
+  const [city, setCity] = useState("");
   const [description, setDescription] = useState("");
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || slug.trim().length < 3 || !city) return;
     setError(null);
     startTransition(async () => {
       try {
-        await createShop({ name: name.trim(), description: description.trim() || undefined });
+        await createShop({
+          name: name.trim(),
+          slug: slug.trim(),
+          city,
+          description: description.trim() || undefined,
+        });
         router.refresh();
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "Une erreur est survenue.");
@@ -73,12 +91,44 @@ export function CreateShopForm() {
           <label className="text-xs font-medium text-text-secondary">Nom de la boutique *</label>
           <Input
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              const v = e.target.value;
+              setName(v);
+              if (!slugTouched) setSlug(slugify(v));
+            }}
             placeholder="Ex: Électronique Mahamat"
             required
             minLength={3}
             maxLength={60}
           />
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-text-secondary">Identifiant boutique (URL) *</label>
+          <Input
+            value={slug}
+            onChange={(e) => { setSlug(slugify(e.target.value)); setSlugTouched(true); }}
+            placeholder="electronique-mahamat"
+            required
+            minLength={3}
+            maxLength={50}
+          />
+          <p className="text-xs text-text-disabled">Généré automatiquement à partir du nom, modifiable.</p>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-text-secondary">Ville *</label>
+          <select
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            required
+            className="w-full h-11 px-4 rounded-xl border border-border bg-white text-text-primary text-sm focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/10 transition-colors"
+          >
+            <option value="">Choisir une ville…</option>
+            {CHAD_CITIES.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
         </div>
 
         <div className="space-y-1.5">
@@ -93,7 +143,8 @@ export function CreateShopForm() {
           />
         </div>
 
-        <Button type="submit" size="lg" className="w-full" loading={pending}>
+        <Button type="submit" size="lg" className="w-full" loading={pending}
+          disabled={!name.trim() || slug.trim().length < 3 || !city}>
           Soumettre la demande
         </Button>
 
