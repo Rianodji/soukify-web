@@ -4,6 +4,7 @@ import { CheckCircle, Clock, Shield } from "lucide-react";
 import { usePolledData } from "@/hooks/usePolledData";
 import { fetchMyProfile } from "../actions";
 import { KycForm } from "./KycForm";
+import { AuthenticatedDocumentImage } from "@/components/features/kyc/AuthenticatedDocumentImage";
 import type { MyProfile } from "@/types/api";
 
 export function KycStatusPanel({ initialProfile }: { initialProfile: MyProfile | null }) {
@@ -12,24 +13,30 @@ export function KycStatusPanel({ initialProfile }: { initialProfile: MyProfile |
 
   if (kycStatus === "APPROVED") {
     return (
-      <div className="flex items-center gap-3 p-5 rounded-2xl bg-success-light border border-success">
-        <CheckCircle className="w-5 h-5 text-success shrink-0" />
-        <div>
-          <p className="text-sm font-semibold text-text-primary">Identité vérifiée</p>
-          <p className="text-xs text-text-secondary mt-0.5">Votre identité a été vérifiée. Cela renforce la confiance avec les autres utilisateurs.</p>
+      <div className="p-5 rounded-2xl bg-success-light border border-success space-y-3">
+        <div className="flex items-center gap-3">
+          <CheckCircle className="w-5 h-5 text-success shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-text-primary">Identité vérifiée</p>
+            <p className="text-xs text-text-secondary mt-0.5">Votre identité a été vérifiée. Cela renforce la confiance avec les autres utilisateurs.</p>
+          </div>
         </div>
+        <AuthenticatedDocumentImage src="/api/kyc-document" alt="Votre document soumis" />
       </div>
     );
   }
 
   if (kycStatus === "PENDING") {
     return (
-      <div className="flex items-center gap-3 p-5 rounded-2xl bg-warning-light border border-warning">
-        <Clock className="w-5 h-5 text-warning shrink-0" />
-        <div>
-          <p className="text-sm font-semibold text-text-primary">Vérification en cours</p>
-          <p className="text-xs text-text-secondary mt-0.5">Votre document est en cours d&apos;examen. Comptez 24 à 48h.</p>
+      <div className="p-5 rounded-2xl bg-warning-light border border-warning space-y-3">
+        <div className="flex items-center gap-3">
+          <Clock className="w-5 h-5 text-warning shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-text-primary">Vérification en cours</p>
+            <p className="text-xs text-text-secondary mt-0.5">Votre document est en cours d&apos;examen. Comptez 24 à 48h.</p>
+          </div>
         </div>
+        <AuthenticatedDocumentImage src="/api/kyc-document" alt="Votre document soumis" />
       </div>
     );
   }
@@ -47,6 +54,12 @@ export function KycStatusPanel({ initialProfile }: { initialProfile: MyProfile |
         </h3>
       </div>
       <div className="p-6 space-y-4">
+        {isErrorState && (
+          <div className="space-y-1.5">
+            <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide">Document précédemment soumis</p>
+            <AuthenticatedDocumentImage src="/api/kyc-document" alt="Votre document précédemment soumis" />
+          </div>
+        )}
         <p className="text-sm text-text-secondary leading-relaxed">
           La vérification KYC est <strong>gratuite</strong>, prend 2 minutes, et débloque le badge de confiance sur vos annonces.
         </p>

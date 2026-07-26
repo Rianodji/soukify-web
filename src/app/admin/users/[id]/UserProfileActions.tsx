@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { approveKyc, rejectKyc, suspendUser, unsuspendUser, changeUserRole, fetchAdminUserById } from "../../actions";
 import { Button } from "@/components/ui/Button";
 import { usePolledData } from "@/hooks/usePolledData";
+import { AuthenticatedDocumentImage } from "@/components/features/kyc/AuthenticatedDocumentImage";
 import type { AdminUser, UserRole } from "@/types/api";
 
 const ROLES: Array<{ value: UserRole; label: string }> = [
@@ -29,7 +30,6 @@ export function UserProfileActions({ userId, initialUser }: UserProfileActionsPr
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [showRoleChange, setShowRoleChange] = useState(false);
-  const [documentError, setDocumentError] = useState(false);
 
   const { data: user } = usePolledData(["admin-user", userId], () => fetchAdminUserById(userId), initialUser);
 
@@ -49,20 +49,13 @@ export function UserProfileActions({ userId, initialUser }: UserProfileActionsPr
   return (
     <div className="space-y-3">
       {/* KYC */}
-      {(kycStatus === "PENDING" || kycStatus === "REJECTED" || kycStatus === "EXPIRED") && hasSubmittedDocument && (
+      {hasSubmittedDocument && (
         <div className="space-y-2">
           <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide">Document soumis</p>
-          {documentError ? (
-            <p className="text-xs text-text-disabled italic">Document indisponible.</p>
-          ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={`/api/admin/kyc-document/${userId}`}
-              alt="Document d'identité soumis"
-              className="w-full rounded-xl border border-border object-contain max-h-64"
-              onError={() => setDocumentError(true)}
-            />
-          )}
+          <AuthenticatedDocumentImage
+            src={`/api/admin/kyc-document/${userId}`}
+            alt="Document d'identité soumis"
+          />
         </div>
       )}
 
