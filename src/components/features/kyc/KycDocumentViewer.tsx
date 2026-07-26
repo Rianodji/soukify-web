@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, X, ZoomIn } from "lucide-react";
 
 interface KycDocumentViewerProps {
   src: string;
@@ -23,6 +23,16 @@ type State =
 export function KycDocumentViewer({ src, alt }: KycDocumentViewerProps) {
   const [state, setState] = useState<State>({ status: "loading" });
   const [decodeFailed, setDecodeFailed] = useState(false);
+  const [zoomed, setZoomed] = useState(false);
+
+  useEffect(() => {
+    if (!zoomed) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setZoomed(false);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [zoomed]);
 
   useEffect(() => {
     let objectUrl: string | null = null;
@@ -95,15 +105,48 @@ export function KycDocumentViewer({ src, alt }: KycDocumentViewerProps) {
   }
 
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={state.url}
-      alt={alt}
-      className="w-full rounded-xl border border-border object-contain max-h-64"
-      /* The proxy can return 200 with bytes the browser can't decode as an
-       * image (e.g. a stored file that isn't actually a photo) — `fetch`
-       * alone can't catch this, only the `<img>` decode step can. */
-      onError={() => setDecodeFailed(true)}
-    />
+    <>
+      <button
+        type="button"
+        onClick={() => setZoomed(true)}
+        className="group relative w-full rounded-xl border border-border overflow-hidden cursor-zoom-in"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={state.url}
+          alt={alt}
+          className="w-full object-contain max-h-64"
+          /* The proxy can return 200 with bytes the browser can't decode as
+           * an image (e.g. a stored file that isn't actually a photo) —
+           * `fetch` alone can't catch this, only the `<img>` decode step can. */
+          onError={() => setDecodeFailed(true)}
+        />
+        <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors">
+          <ZoomIn className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
+      </button>
+
+      {zoomed && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setZoomed(false)}
+        >
+          <button
+            type="button"
+            onClick={() => setZoomed(false)}
+            className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={state.url}
+            alt={alt}
+            className="max-w-full max-h-full object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+    </>
   );
 }
