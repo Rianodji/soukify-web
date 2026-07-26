@@ -44,6 +44,7 @@ export default function AnnonceEditPage({ params }: { params: Promise<{ id: stri
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [annonceId, setAnnonceId] = useState<string>("");
 
   // Form state
@@ -89,7 +90,7 @@ export default function AnnonceEditPage({ params }: { params: Promise<{ id: stri
     startTransition(async () => {
       try {
         await updateAnnonce(annonceId, {
-          title, description, price: Number(price), condition, city, categoryId,
+          title, description, priceXAF: Number(price), condition, city, categoryId,
         });
         setSaved(true);
         setAnnonce((a) => a ? { ...a, title, description, priceXAF: Number(price), condition, city, categoryId } : a);
@@ -102,6 +103,16 @@ export default function AnnonceEditPage({ params }: { params: Promise<{ id: stri
   function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
     if (!files?.length) return;
+    /* API caps every upload (KYC, logo, annonce images, CSV) at 5 MB —
+     * confirmed against the real multer-level limit, cf. HANDOFF_INFRA.md,
+     * 2026-07-27. Fail fast client-side instead of waiting for a 413. */
+    const tooBig = Array.from(files).find((f) => f.size > 5 * 1024 * 1024);
+    if (tooBig) {
+      setActionError(`"${tooBig.name}" dépasse 5 Mo.`);
+      e.target.value = "";
+      return;
+    }
+    setActionError(null);
     const formData = new FormData();
     Array.from(files).forEach((f) => formData.append("images", f));
     startTransition(async () => {
@@ -116,7 +127,9 @@ export default function AnnonceEditPage({ params }: { params: Promise<{ id: stri
           imagesCount: updated?.imagesCount ?? a.imagesCount,
           primaryImageUrl: updated?.primaryImageUrl ?? a.primaryImageUrl,
         } : a);
-      } catch { /* silently fail */ }
+      } catch (err: unknown) {
+        setActionError(err instanceof Error ? err.message : "Impossible d'ajouter cette image.");
+      }
     });
   }
 
@@ -163,19 +176,33 @@ export default function AnnonceEditPage({ params }: { params: Promise<{ id: stri
         </a>
         {annonce.status === "DRAFT" && (
           <Button size="sm" variant="primary" loading={pending}
-            onClick={() => startTransition(async () => {
-              await publishAnnonce(annonce.id);
-              setAnnonce((a) => a ? { ...a, status: "ACTIVE" } : a);
-            })}>
+            onClick={() => {
+              setActionError(null);
+              startTransition(async () => {
+                try {
+                  await publishAnnonce(annonce.id);
+                  setAnnonce((a) => a ? { ...a, status: "ACTIVE" } : a);
+                } catch (err: unknown) {
+                  setActionError(err instanceof Error ? err.message : "Impossible de publier l'annonce.");
+                }
+              });
+            }}>
             Publier maintenant
           </Button>
         )}
         {annonce.status === "EXPIRED" && (
           <Button size="sm" variant="secondary" loading={pending}
-            onClick={() => startTransition(async () => {
-              await renewAnnonce(annonce.id);
-              setAnnonce((a) => a ? { ...a, status: "ACTIVE" } : a);
-            })}>
+            onClick={() => {
+              setActionError(null);
+              startTransition(async () => {
+                try {
+                  await renewAnnonce(annonce.id);
+                  setAnnonce((a) => a ? { ...a, status: "ACTIVE" } : a);
+                } catch (err: unknown) {
+                  setActionError(err instanceof Error ? err.message : "Impossible de renouveler l'annonce.");
+                }
+              });
+            }}>
             <RefreshCw className="w-4 h-4" /> Renouveler
           </Button>
         )}
@@ -183,15 +210,35 @@ export default function AnnonceEditPage({ params }: { params: Promise<{ id: stri
           className="text-error border-error hover:bg-error-light ml-auto"
           onClick={() => {
             if (confirm("Supprimer définitivement cette annonce ?")) {
+              setActionError(null);
               startTransition(async () => {
-                await deleteOwnAnnonce(annonce.id);
-                router.push("/dashboard/annonces");
+                try {
+                  await deleteOwnAnnonce(annonce.id);
+                  router.push("/dashboard/annonces");
+                } catch (err: unknown) {
+                  setActionError(err instanceof Error ? err.message : "Impossible de supprimer l'annonce.");
+                }
               });
             }
           }}>
           <Trash2 className="w-4 h-4" /> Supprimer
         </Button>
       </div>
+
+      {actionError && (
+        <div className="flex items-start gap-2 p-3 rounded-xl bg-error-light border border-error">
+          <AlertCircle className="w-4 h-4 text-error shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm text-error">{actionError}</p>
+            {/* POST /annonces/:id/publish 403s with this exact message without an approved KYC (cf. HANDOFF_INFRA.md, 2026-07-26). */}
+            {actionError.toLowerCase().includes("kyc") && (
+              <Link href="/dashboard/profile" className="text-sm font-medium text-error hover:underline">
+                Vérifier mon identité →
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Images — the API only ever exposes the primary photo back (no
           endpoint lists every uploaded image), even though several can be

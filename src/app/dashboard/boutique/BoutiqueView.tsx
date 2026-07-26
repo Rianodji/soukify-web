@@ -1,12 +1,12 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import {
   TrendingUp, Package, ShoppingBag, Users, Clock,
-  XCircle, AlertTriangle, Plus, MapPin, Trash2, Eye,
+  XCircle, AlertTriangle, AlertCircle, Plus, MapPin, Trash2, Eye,
 } from "lucide-react";
 import { CreateShopForm } from "./CreateShopForm";
 import { ShopEquipe } from "./ShopEquipe";
@@ -44,13 +44,38 @@ interface BoutiqueViewProps {
 
 export function BoutiqueView({ initialData, tab, annonceStatus }: BoutiqueViewProps) {
   const [pending, startTransition] = useTransition();
+  const [annonceActionError, setAnnonceActionError] = useState<string | null>(null);
   const needsAnnonces = tab === "annonces" || tab === "apercu";
   const { data, mutate } = usePolledData(
     ["boutique-data", needsAnnonces, annonceStatus],
     () => fetchBoutiqueData(needsAnnonces, annonceStatus),
     initialData,
   );
-  const { shop, stats, annonces, annoncesTotal, memberNames } = data ?? initialData;
+  const { shop, stats, annonces, annoncesTotal, memberNames, canSell } = data ?? initialData;
+
+  function publishBoutiqueAnnonce(id: string) {
+    setAnnonceActionError(null);
+    startTransition(async () => {
+      try {
+        await publishAnnonce(id);
+        await mutate();
+      } catch (err: unknown) {
+        setAnnonceActionError(err instanceof Error ? err.message : "Impossible de publier l'annonce.");
+      }
+    });
+  }
+
+  function deleteBoutiqueAnnonce(id: string) {
+    setAnnonceActionError(null);
+    startTransition(async () => {
+      try {
+        await deleteOwnAnnonce(id);
+        await mutate();
+      } catch (err: unknown) {
+        setAnnonceActionError(err instanceof Error ? err.message : "Impossible de supprimer l'annonce.");
+      }
+    });
+  }
 
   /* ── No shop ─────────────────────────────────────────────── */
   if (!shop) {
@@ -151,12 +176,31 @@ export function BoutiqueView({ initialData, tab, annonceStatus }: BoutiqueViewPr
             <p className="text-sm text-text-secondary mt-0.5 truncate">{shop.description}</p>
           )}
         </div>
-        <Link href="/dashboard/annonces/new">
+        <Link href={`/dashboard/annonces/new?shopId=${shop.id}`}>
           <Button size="sm" variant="gold">
             <Plus className="w-4 h-4" /> Publier
           </Button>
         </Link>
       </div>
+
+      {/* KYC is checked per-member, not per-shop — a shop can be Active while
+       * the current member still can't create/publish (cf. HANDOFF_INFRA.md,
+       * 2026-07-26). Distinct from the shop-level PENDING/REJECTED/SUSPENDED
+       * states above, which are about the shop itself, not this member. */}
+      {!canSell && (
+        <div className="flex items-start gap-3 p-4 rounded-2xl bg-warning-light border border-warning">
+          <AlertTriangle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-text-primary">Vérification d&apos;identité requise</p>
+            <p className="text-xs text-text-secondary mt-0.5">
+              Votre boutique est active, mais vous devez vérifier votre identité avant de pouvoir y publier des annonces.
+            </p>
+            <Link href="/dashboard/profile" className="inline-block text-xs font-medium text-warning hover:underline mt-1">
+              Vérifier mon identité →
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="border-b border-border">
@@ -238,7 +282,7 @@ export function BoutiqueView({ initialData, tab, annonceStatus }: BoutiqueViewPr
             <div className="bg-white rounded-2xl border border-border p-10 text-center space-y-3">
               <Package className="w-10 h-10 text-border mx-auto" />
               <p className="text-sm text-text-secondary">Aucune annonce publiée pour le moment.</p>
-              <Link href="/dashboard/annonces/new">
+              <Link href={`/dashboard/annonces/new?shopId=${shop.id}`}>
                 <Button size="sm" variant="primary">
                   <Plus className="w-4 h-4" /> Publier une annonce
                 </Button>
@@ -258,7 +302,7 @@ export function BoutiqueView({ initialData, tab, annonceStatus }: BoutiqueViewPr
             </div>
             <div className="flex gap-2">
               {isStandardPlus && <CsvImport shopId={shop.id} />}
-              <Link href="/dashboard/annonces/new">
+              <Link href={`/dashboard/annonces/new?shopId=${shop.id}`}>
                 <Button size="sm" variant="gold">
                   <Plus className="w-4 h-4" /> Nouvelle annonce
                 </Button>
@@ -283,11 +327,18 @@ export function BoutiqueView({ initialData, tab, annonceStatus }: BoutiqueViewPr
             ))}
           </div>
 
+          {annonceActionError && (
+            <div className="flex items-start gap-2 p-3 rounded-xl bg-error-light border border-error">
+              <AlertCircle className="w-4 h-4 text-error shrink-0 mt-0.5" />
+              <p className="text-sm text-error">{annonceActionError}</p>
+            </div>
+          )}
+
           {annonces.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3 bg-white rounded-2xl border border-border">
               <Package className="w-10 h-10 text-border" />
               <p className="text-sm text-text-secondary">Aucune annonce trouvée.</p>
-              <Link href="/dashboard/annonces/new">
+              <Link href={`/dashboard/annonces/new?shopId=${shop.id}`}>
                 <Button size="sm" variant="primary"><Plus className="w-4 h-4" /> Publier</Button>
               </Link>
             </div>
@@ -318,7 +369,7 @@ export function BoutiqueView({ initialData, tab, annonceStatus }: BoutiqueViewPr
                         <button
                           type="button"
                           disabled={pending}
-                          onClick={() => startTransition(async () => { await publishAnnonce(a.id); await mutate(); })}
+                          onClick={() => publishBoutiqueAnnonce(a.id)}
                           className="text-xs px-2.5 py-1.5 rounded-lg border border-brand text-brand hover:bg-primary-50 transition-colors font-medium disabled:opacity-50">
                           Publier
                         </button>
@@ -330,7 +381,7 @@ export function BoutiqueView({ initialData, tab, annonceStatus }: BoutiqueViewPr
                       <button
                         type="button"
                         disabled={pending}
-                        onClick={() => startTransition(async () => { await deleteOwnAnnonce(a.id); await mutate(); })}
+                        onClick={() => deleteBoutiqueAnnonce(a.id)}
                         className="w-7 h-7 rounded-lg border border-border flex items-center justify-center text-error hover:bg-error-light hover:border-error transition-colors disabled:opacity-50">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>

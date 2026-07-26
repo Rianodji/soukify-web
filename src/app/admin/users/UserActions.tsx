@@ -28,6 +28,18 @@ interface UserActionsProps {
 export function UserActions({ userId, isSuspended, kycStatus, primaryRole }: UserActionsProps) {
   const [pending, startTransition] = useTransition();
   const [showRoleChange, setShowRoleChange] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function run(action: () => Promise<void>) {
+    setError(null);
+    startTransition(async () => {
+      try {
+        await action();
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Une erreur est survenue.");
+      }
+    });
+  }
 
   return (
     <div className="flex flex-col gap-2">
@@ -36,14 +48,14 @@ export function UserActions({ userId, isSuspended, kycStatus, primaryRole }: Use
         {kycStatus === "PENDING" && (
           <>
             <Button size="sm" variant="secondary" loading={pending}
-              onClick={() => startTransition(() => approveKyc(userId))}
+              onClick={() => run(() => approveKyc(userId))}
               className="text-success border-success hover:bg-success-light text-xs h-7 px-2">
               ✓ KYC
             </Button>
             <Button size="sm" variant="secondary" loading={pending}
               onClick={() => {
                 const reason = prompt("Motif du rejet KYC :");
-                if (reason?.trim()) startTransition(() => rejectKyc(userId, reason.trim()));
+                if (reason?.trim()) run(() => rejectKyc(userId, reason.trim()));
               }}
               className="text-error border-error hover:bg-error-light text-xs h-7 px-2">
               ✗ KYC
@@ -54,13 +66,13 @@ export function UserActions({ userId, isSuspended, kycStatus, primaryRole }: Use
         {/* Suspend */}
         {isSuspended ? (
           <Button size="sm" variant="secondary" loading={pending}
-            onClick={() => startTransition(() => unsuspendUser(userId))}
+            onClick={() => run(() => unsuspendUser(userId))}
             className="text-success border-success hover:bg-success-light text-xs h-7 px-2">
             Réactiver
           </Button>
         ) : (
           <Button size="sm" variant="secondary" loading={pending}
-            onClick={() => startTransition(() => suspendUser(userId))}
+            onClick={() => run(() => suspendUser(userId))}
             className="text-error border-error hover:bg-error-light text-xs h-7 px-2">
             Suspendre
           </Button>
@@ -74,12 +86,14 @@ export function UserActions({ userId, isSuspended, kycStatus, primaryRole }: Use
         </Button>
       </div>
 
+      {error && <p className="text-xs text-error max-w-[180px]">{error}</p>}
+
       {/* Inline role selector */}
       {showRoleChange && (
         <select
           defaultValue={primaryRole}
           onChange={(e) => {
-            startTransition(() => changeUserRole(userId, e.target.value as UserRole));
+            run(() => changeUserRole(userId, e.target.value as UserRole));
             setShowRoleChange(false);
           }}
           className="text-xs border border-border rounded-lg px-2 py-1.5 bg-white text-text-primary focus:outline-none focus:border-brand w-full max-w-[160px]"

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { AlertCircle } from "lucide-react";
 import { approveKyc, rejectKyc, suspendUser, unsuspendUser, changeUserRole, fetchAdminUserById } from "../../actions";
 import { Button } from "@/components/ui/Button";
 import { usePolledData } from "@/hooks/usePolledData";
@@ -30,6 +31,7 @@ export function UserProfileActions({ userId, initialUser }: UserProfileActionsPr
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [showRoleChange, setShowRoleChange] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const { data: user } = usePolledData(["admin-user", userId], () => fetchAdminUserById(userId), initialUser);
 
@@ -43,11 +45,26 @@ export function UserProfileActions({ userId, initialUser }: UserProfileActionsPr
   const hasSubmittedDocument = kycStatus !== "NOT_SUBMITTED";
 
   function run(action: () => Promise<void>) {
-    startTransition(async () => { await action(); router.refresh(); });
+    setError(null);
+    startTransition(async () => {
+      try {
+        await action();
+        router.refresh();
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Une erreur est survenue.");
+      }
+    });
   }
 
   return (
     <div className="space-y-3">
+      {error && (
+        <div className="flex items-start gap-2 p-3 rounded-xl bg-error-light border border-error">
+          <AlertCircle className="w-4 h-4 text-error shrink-0 mt-0.5" />
+          <p className="text-sm text-error">{error}</p>
+        </div>
+      )}
+
       {/* KYC */}
       {hasSubmittedDocument && (
         <div className="space-y-2">

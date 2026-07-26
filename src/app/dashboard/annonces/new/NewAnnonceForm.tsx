@@ -21,6 +21,7 @@ const schema = z.object({
   type:        z.enum(["SALE", "SERVICE"]),
   condition:   z.string().optional(),
   price:       z.string().min(1, "Requis"),
+  negotiable:  z.boolean(),
   city:        z.string().min(1, "Choisissez une ville"),
 });
 
@@ -28,22 +29,29 @@ type FormData = z.infer<typeof schema>;
 
 interface NewAnnonceFormProps {
   categories: Category[];
+  /** Links the annonce to a Pro shop (caller must be an active member) — optional, cf. HANDOFF_INFRA.md, 2026-07-26. */
+  shopId?: string;
 }
 
-export function NewAnnonceForm({ categories }: NewAnnonceFormProps) {
+export function NewAnnonceForm({ categories, shopId }: NewAnnonceFormProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
   const { register, control, watch, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { type: "SALE", condition: "GOOD" },
+    defaultValues: { type: "SALE", condition: "GOOD", negotiable: false },
   });
 
   const type = watch("type");
 
   const [publishNow, setPublishNow] = useState(false);
 
+  /**
+   * `CreateAnnonceDto` requires `priceXAF` (not `price`) and `negotiable`
+   * (never sent before) — every submission through this form 400'd until
+   * this fix (cf. HANDOFF_INFRA.md, 2026-07-26).
+   */
   const submitForm = handleSubmit((data: FormData) => {
     setError(null);
     startTransition(async () => {
@@ -54,11 +62,13 @@ export function NewAnnonceForm({ categories }: NewAnnonceFormProps) {
           categoryId:  data.categoryId,
           type:        data.type,
           condition:   data.type === "SERVICE" ? "NEW" : (data.condition ?? "GOOD"),
-          price:       Number(data.price),
+          priceXAF:    Number(data.price),
+          negotiable:  data.negotiable,
           city:        data.city,
+          shopId,
         });
         if (publishNow) await publishAnnonce(id);
-        router.push("/dashboard/annonces");
+        router.push(shopId ? "/dashboard/boutique?tab=annonces" : "/dashboard/annonces");
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : "Une erreur est survenue.");
       }
@@ -86,7 +96,15 @@ export function NewAnnonceForm({ categories }: NewAnnonceFormProps) {
       {error && (
         <div className="flex items-start gap-3 p-4 rounded-2xl bg-error-light border border-error">
           <AlertCircle className="w-5 h-5 text-error shrink-0 mt-0.5" />
-          <p className="text-sm text-error">{error}</p>
+          <div className="flex-1">
+            <p className="text-sm text-error">{error}</p>
+            {/* POST /annonces and /annonces/:id/publish 403 with this exact wording without an approved KYC (cf. HANDOFF_INFRA.md, 2026-07-26). */}
+            {error.toLowerCase().includes("kyc") && (
+              <Link href="/dashboard/profile" className="text-sm font-medium text-error hover:underline">
+                Vérifier mon identité →
+              </Link>
+            )}
+          </div>
         </div>
       )}
 
@@ -180,6 +198,10 @@ export function NewAnnonceForm({ categories }: NewAnnonceFormProps) {
                 placeholder="Ex: 150000"
               />
               {errors.price && <p className="text-xs text-error">{errors.price.message}</p>}
+              <label className="flex items-center gap-2 text-xs text-text-secondary pt-1">
+                <input type="checkbox" {...register("negotiable")} className="rounded border-border accent-brand" />
+                Prix négociable
+              </label>
             </div>
 
             {type === "SALE" && (

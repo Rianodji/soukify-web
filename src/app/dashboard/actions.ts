@@ -94,14 +94,25 @@ export interface BoutiqueData {
   annoncesTotal: number;
   /** `ShopMember` only has `userId` — resolved via the public `GET /users/:id/profile` (no admin rights needed). */
   memberNames: Record<string, string>;
+  /**
+   * KYC is checked per-member, not per-shop (cf. HANDOFF_INFRA.md,
+   * 2026-07-26) — a shop can be `ACTIVE` while the *current* logged-in
+   * member still can't create/publish an annonce because their own KYC
+   * isn't approved. Distinct from the shop's own status.
+   */
+  canSell: boolean;
 }
 
 export async function fetchBoutiqueData(needsAnnonces: boolean, annonceStatus: string): Promise<BoutiqueData> {
-  const shopRes = await serverGet<{ shops: Shop[] }>("/pro/shops/me", 0).catch((e: unknown) => { unstable_rethrow(e); return null; });
+  const [shopRes, profile] = await Promise.all([
+    serverGet<{ shops: Shop[] }>("/pro/shops/me", 0).catch((e: unknown) => { unstable_rethrow(e); return null; }),
+    serverGet<MyProfile>("/users/me", 0).catch((e: unknown) => { unstable_rethrow(e); return null; }),
+  ]);
   const shop = shopRes?.shops[0] ?? null;
+  const canSell = profile?.canSell ?? false;
 
   if (!shop || shop.status !== "ACTIVE") {
-    return { shop, stats: null, annonces: [], annoncesTotal: 0, memberNames: {} };
+    return { shop, stats: null, annonces: [], annoncesTotal: 0, memberNames: {}, canSell };
   }
 
   const members = shop.members ?? [];
@@ -127,19 +138,30 @@ export async function fetchBoutiqueData(needsAnnonces: boolean, annonceStatus: s
     annonces: annoncesRes.status === "fulfilled" && annoncesRes.value ? annoncesRes.value.items : [],
     annoncesTotal: annoncesRes.status === "fulfilled" && annoncesRes.value ? annoncesRes.value.total : 0,
     memberNames,
+    canSell,
   };
 }
 
 /* ── Annonces ────────────────────────────────────────────── */
 
+/**
+ * `CreateAnnonceDto` (confirmed against the real schema): `priceXAF` (not
+ * `price`) and `negotiable` are both required — omitting either 400s. This
+ * action previously sent `price` and never sent `negotiable` at all, so
+ * every annonce creation through the real form failed (cf. HANDOFF_INFRA.md,
+ * 2026-07-26). `shopId` is optional — links the annonce to a Pro shop the
+ * caller is an active member of.
+ */
 export async function createAnnonce(data: {
   title: string;
   description: string;
   categoryId: string;
   type: "SALE" | "SERVICE";
   condition: string;
-  price: number;
+  priceXAF: number;
+  negotiable: boolean;
   city: string;
+  shopId?: string;
 }): Promise<{ id: string }> {
   const annonce = await serverPost<Annonce>("/annonces", data);
   revalidatePath("/dashboard/annonces");
@@ -205,8 +227,9 @@ export async function deleteOwnAnnonce(annonceId: string) {
   revalidatePath("/dashboard/annonces");
 }
 
+/** `UpdateAnnonceDto` uses `priceXAF`, not `price` (cf. HANDOFF_INFRA.md, 2026-07-26). */
 export async function updateAnnonce(id: string, data: {
-  title?: string; description?: string; price?: number;
+  title?: string; description?: string; priceXAF?: number;
   condition?: string; city?: string; categoryId?: string;
 }) {
   await serverPatch(`/annonces/${id}`, data);

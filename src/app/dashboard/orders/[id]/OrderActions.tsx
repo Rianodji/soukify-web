@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { confirmDelivery, cancelOrder, disputeOrder } from "../../actions";
 import type { OrderStatus } from "@/types/api";
@@ -17,9 +18,18 @@ export function OrderActions({ orderId, status, isBuyer }: OrderActionsProps) {
   const [pending, startTransition] = useTransition();
   const [showDisputeForm, setShowDisputeForm] = useState(false);
   const [disputeReason, setDisputeReason] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   function run(action: () => Promise<void>) {
-    startTransition(async () => { await action(); router.refresh(); });
+    setError(null);
+    startTransition(async () => {
+      try {
+        await action();
+        router.refresh();
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Une erreur est survenue.");
+      }
+    });
   }
 
   const canConfirm  = isBuyer  && ["PAID", "CONFIRMED", "IN_DELIVERY"].includes(status);
@@ -31,6 +41,12 @@ export function OrderActions({ orderId, status, isBuyer }: OrderActionsProps) {
 
   return (
     <div className="space-y-3">
+      {error && (
+        <div className="flex items-start gap-2 p-3 rounded-xl bg-error-light border border-error">
+          <AlertCircle className="w-4 h-4 text-error shrink-0 mt-0.5" />
+          <p className="text-sm text-error">{error}</p>
+        </div>
+      )}
       {canConfirm && (
         <Button size="md" variant="primary" className="w-full" loading={pending}
           onClick={() => {

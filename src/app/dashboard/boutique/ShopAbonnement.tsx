@@ -1,7 +1,7 @@
 "use client";
 
-import { useTransition } from "react";
-import { Check, Zap } from "lucide-react";
+import { useState, useTransition } from "react";
+import { AlertCircle, Check, Zap } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { changeSubscription } from "../actions";
 import type { ShopSubscription } from "@/types/api";
@@ -45,6 +45,18 @@ interface ShopAbonnementProps {
 
 export function ShopAbonnement({ shopId, currentPlan }: ShopAbonnementProps) {
   const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  function changePlan(plan: ShopSubscription) {
+    setError(null);
+    startTransition(async () => {
+      try {
+        await changeSubscription(shopId, plan);
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Impossible de changer d'abonnement.");
+      }
+    });
+  }
 
   return (
     <div className="space-y-4">
@@ -54,6 +66,13 @@ export function ShopAbonnement({ shopId, currentPlan }: ShopAbonnementProps) {
           Plan actuel : <span className="font-semibold text-brand">{PLANS.find((p) => p.id === currentPlan)?.name}</span>
         </p>
       </div>
+
+      {error && (
+        <div className="flex items-start gap-2 p-3 rounded-xl bg-error-light border border-error">
+          <AlertCircle className="w-4 h-4 text-error shrink-0 mt-0.5" />
+          <p className="text-sm text-error">{error}</p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {PLANS.map((plan) => {
@@ -100,7 +119,7 @@ export function ShopAbonnement({ shopId, currentPlan }: ShopAbonnementProps) {
                 className="w-full"
                 disabled={isCurrent || pending}
                 loading={pending && !isCurrent}
-                onClick={() => startTransition(() => changeSubscription(shopId, plan.id))}
+                onClick={() => changePlan(plan.id)}
               >
                 {isCurrent ? "Plan actuel" : "Choisir ce plan"}
               </Button>

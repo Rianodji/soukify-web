@@ -23,6 +23,13 @@ export function CsvImport({ shopId }: CsvImportProps) {
       setError("Seuls les fichiers .csv sont acceptés.");
       return;
     }
+    /* API caps every upload (KYC, logo, annonce images, CSV) at 5 MB —
+     * confirmed against the real multer-level limit, cf. HANDOFF_INFRA.md,
+     * 2026-07-27. Fail fast client-side instead of waiting for a 413. */
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Le fichier ne doit pas dépasser 5 Mo.");
+      return;
+    }
     setError(null);
     setResult(null);
     setFileName(file.name);
@@ -83,7 +90,14 @@ export function CsvImport({ shopId }: CsvImportProps) {
         className="text-xs text-brand hover:underline"
         onClick={(e) => {
           e.preventDefault();
-          alert("Format CSV attendu :\ntitle,description,price,categoryId,type,condition,city\nMontre Casio,Belle montre...,15000,electronics,SALE,GOOD,N'Djamena");
+          alert(
+            "Format CSV attendu (en-têtes en snake_case) :\n\n" +
+            "Obligatoires : title, description, price_xaf, condition (NEW/LIKE_NEW/GOOD/FAIR/POOR), city\n" +
+            "Optionnels : negotiable (true ou 1), type (SERVICE, sinon SALE par défaut), category_id, subcategory_id, neighborhood\n\n" +
+            "Exemple :\n" +
+            "title,description,price_xaf,condition,city\n" +
+            "Montre Casio,Belle montre peu utilisée,15000,GOOD,N'Djamena"
+          );
         }}
       >
         Voir le format CSV attendu

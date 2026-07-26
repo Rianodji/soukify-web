@@ -42,6 +42,28 @@ export function ShopEquipe({ shopId, members, memberNames }: ShopEquipeProps) {
     });
   }
 
+  function handleRoleChange(userId: string, role: "MANAGER" | "STAFF") {
+    setError(null);
+    startTransition(async () => {
+      try {
+        await changeStaffRole(shopId, userId, role);
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Impossible de changer le rôle.");
+      }
+    });
+  }
+
+  function handleRemove(userId: string) {
+    setError(null);
+    startTransition(async () => {
+      try {
+        await removeStaffMember(shopId, userId);
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Impossible de retirer ce membre.");
+      }
+    });
+  }
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -56,11 +78,12 @@ export function ShopEquipe({ shopId, members, memberNames }: ShopEquipeProps) {
         </Button>
       </div>
 
+      {error && <p className="text-xs text-error">{error}</p>}
+
       {/* Add form */}
       {showAdd && (
         <form onSubmit={handleAdd} className="bg-primary-50 rounded-xl border border-primary-100 p-4 space-y-3">
           <p className="text-sm font-medium text-text-primary">Ajouter un membre par numéro</p>
-          {error && <p className="text-xs text-error">{error}</p>}
           <div className="flex gap-2">
             <Input
               value={phone}
@@ -98,11 +121,7 @@ export function ShopEquipe({ shopId, members, memberNames }: ShopEquipeProps) {
                   <div className="flex items-center gap-1.5">
                     <select
                       value={member.role}
-                      onChange={(e) => {
-                        startTransition(() =>
-                          changeStaffRole(shopId, member.userId, e.target.value as "MANAGER" | "STAFF")
-                        );
-                      }}
+                      onChange={(e) => handleRoleChange(member.userId, e.target.value as "MANAGER" | "STAFF")}
                       className="text-xs border border-border rounded-lg px-2 py-1 bg-white text-text-secondary focus:outline-none focus:border-brand"
                     >
                       <option value="MANAGER">Manager</option>
@@ -110,7 +129,7 @@ export function ShopEquipe({ shopId, members, memberNames }: ShopEquipeProps) {
                     </select>
                     <button
                       type="button"
-                      onClick={() => startTransition(() => removeStaffMember(shopId, member.userId))}
+                      onClick={() => handleRemove(member.userId)}
                       className="w-7 h-7 rounded-lg text-error hover:bg-error-light flex items-center justify-center transition-colors"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
