@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ExternalLink, X, ZoomIn } from "lucide-react";
+import { ExternalLink, Maximize2, X, ZoomIn } from "lucide-react";
 
 interface KycDocumentViewerProps {
   src: string;
@@ -86,45 +86,57 @@ export function KycDocumentViewer({ src, alt }: KycDocumentViewerProps) {
     return <p className="text-xs text-text-disabled italic">Le fichier reçu n&apos;est pas un document valide.</p>;
   }
 
-  if (state.contentType === "application/pdf") {
-    return (
-      <div className="space-y-1.5">
-        {/* Modern browsers render PDFs natively inline in an iframe — no extra click, no library. */}
-        <iframe src={state.url} title={alt} className="w-full h-96 rounded-xl border border-border" />
-        <a
-          href={state.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1.5 text-xs text-brand hover:underline"
-        >
-          <ExternalLink className="w-3.5 h-3.5" />
-          Ouvrir dans un nouvel onglet
-        </a>
-      </div>
-    );
-  }
+  const isPdf = state.contentType === "application/pdf";
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setZoomed(true)}
-        className="group relative w-full rounded-xl border border-border overflow-hidden cursor-zoom-in"
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={state.url}
-          alt={alt}
-          className="w-full object-contain max-h-64"
-          /* The proxy can return 200 with bytes the browser can't decode as
-           * an image (e.g. a stored file that isn't actually a photo) —
-           * `fetch` alone can't catch this, only the `<img>` decode step can. */
-          onError={() => setDecodeFailed(true)}
-        />
-        <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors">
-          <ZoomIn className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+      {isPdf ? (
+        <div className="space-y-1.5">
+          {/* Modern browsers render PDFs natively inline in an iframe — no extra click, no library.
+           * Small preview only (this sits in a narrow sidebar column on the admin page) — the
+           * "Agrandir" button below opens a full-size view within the page. */}
+          <iframe src={state.url} title={alt} className="w-full h-40 rounded-xl border border-border" />
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setZoomed(true)}
+              className="flex items-center gap-1.5 text-xs text-brand hover:underline"
+            >
+              <Maximize2 className="w-3.5 h-3.5" />
+              Agrandir
+            </button>
+            <a
+              href={state.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-xs text-brand hover:underline"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              Ouvrir dans un nouvel onglet
+            </a>
+          </div>
         </div>
-      </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setZoomed(true)}
+          className="group relative w-full rounded-xl border border-border overflow-hidden cursor-zoom-in"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={state.url}
+            alt={alt}
+            className="w-full object-contain max-h-64"
+            /* The proxy can return 200 with bytes the browser can't decode as
+             * an image (e.g. a stored file that isn't actually a photo) —
+             * `fetch` alone can't catch this, only the `<img>` decode step can. */
+            onError={() => setDecodeFailed(true)}
+          />
+          <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors">
+            <ZoomIn className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
+        </button>
+      )}
 
       {zoomed && (
         <div
@@ -138,13 +150,22 @@ export function KycDocumentViewer({ src, alt }: KycDocumentViewerProps) {
           >
             <X className="w-5 h-5" />
           </button>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={state.url}
-            alt={alt}
-            className="max-w-full max-h-full object-contain rounded-lg"
-            onClick={(e) => e.stopPropagation()}
-          />
+          {isPdf ? (
+            <iframe
+              src={state.url}
+              title={alt}
+              className="w-full h-full max-w-4xl bg-white rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={state.url}
+              alt={alt}
+              className="max-w-full max-h-full object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+          )}
         </div>
       )}
     </>
