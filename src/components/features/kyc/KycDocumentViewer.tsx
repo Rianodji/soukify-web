@@ -1,22 +1,27 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ExternalLink } from "lucide-react";
 
-interface AuthenticatedDocumentImageProps {
+interface KycDocumentViewerProps {
   src: string;
   alt: string;
 }
 
+type State =
+  | { status: "loading" }
+  | { status: "ok"; url: string; contentType: string }
+  | { status: "error"; message: string };
+
 /**
- * `<img src>` can't distinguish 401/403/404 from a generic failure — it
- * just fires `onError` with no status. Fetches the proxy route directly so
- * we can show a specific, honest message instead of always saying
- * "unavailable" (cf. HANDOFF_INFRA.md, 2026-07-26).
+ * The API accepts JPEG/PNG/PDF for a KYC document (magic-byte-validated
+ * server-side, cf. HANDOFF_INFRA.md, 2026-07-26) — this renders whichever
+ * one comes back, based on the real `Content-Type`, not a guess. `<img
+ * src>` can't attach a Bearer token or distinguish 401/403/404 from a
+ * generic failure, so this fetches the proxy route directly.
  */
-export function AuthenticatedDocumentImage({ src, alt }: AuthenticatedDocumentImageProps) {
-  const [state, setState] = useState<
-    { status: "loading" } | { status: "ok"; url: string } | { status: "error"; message: string }
-  >({ status: "loading" });
+export function KycDocumentViewer({ src, alt }: KycDocumentViewerProps) {
+  const [state, setState] = useState<State>({ status: "loading" });
   const [decodeFailed, setDecodeFailed] = useState(false);
 
   useEffect(() => {
@@ -43,10 +48,11 @@ export function AuthenticatedDocumentImage({ src, alt }: AuthenticatedDocumentIm
           setState({ status: "error", message: `Document indisponible (erreur ${res.status}).` });
           return;
         }
+        const contentType = res.headers.get("Content-Type") ?? "";
         const blob = await res.blob();
         if (cancelled) return;
         objectUrl = URL.createObjectURL(blob);
-        setState({ status: "ok", url: objectUrl });
+        setState({ status: "ok", url: objectUrl, contentType });
       } catch {
         if (!cancelled) setState({ status: "error", message: "Document indisponible (erreur réseau)." });
       }
@@ -67,7 +73,25 @@ export function AuthenticatedDocumentImage({ src, alt }: AuthenticatedDocumentIm
   }
 
   if (decodeFailed) {
-    return <p className="text-xs text-text-disabled italic">Le fichier reçu n&apos;est pas une image valide.</p>;
+    return <p className="text-xs text-text-disabled italic">Le fichier reçu n&apos;est pas un document valide.</p>;
+  }
+
+  if (state.contentType === "application/pdf") {
+    return (
+      <div className="space-y-1.5">
+        {/* Modern browsers render PDFs natively inline in an iframe — no extra click, no library. */}
+        <iframe src={state.url} title={alt} className="w-full h-96 rounded-xl border border-border" />
+        <a
+          href={state.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 text-xs text-brand hover:underline"
+        >
+          <ExternalLink className="w-3.5 h-3.5" />
+          Ouvrir dans un nouvel onglet
+        </a>
+      </div>
+    );
   }
 
   return (

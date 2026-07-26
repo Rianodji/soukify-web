@@ -117,7 +117,7 @@ export function KycForm() {
 
       {/* Document file */}
       <div className="space-y-1.5">
-        <label className="text-xs font-medium text-text-secondary">Photo du document *</label>
+        <label className="text-xs font-medium text-text-secondary">Photo ou scan du document (PDF accepté) *</label>
         <button
           type="button"
           onClick={() => fileRef.current?.click()}
@@ -127,10 +127,11 @@ export function KycForm() {
         >
           <Upload className={`w-5 h-5 shrink-0 ${file ? "text-brand" : "text-text-disabled"}`} />
           <span className={`text-sm ${file ? "text-brand font-medium" : "text-text-disabled"}`}>
-            {file ? file.name : "Sélectionner une photo de votre document"}
+            {file ? file.name : "Sélectionner une photo ou un PDF de votre document"}
           </span>
         </button>
-        <input ref={fileRef} type="file" accept="image/*" className="sr-only"
+        {/* API accepts JPEG/PNG/PDF (magic-byte-validated server-side, cf. HANDOFF_INFRA.md, 2026-07-26). */}
+        <input ref={fileRef} type="file" accept="image/*,application/pdf" className="sr-only"
           onChange={(e) => {
             const f = e.target.files?.[0] ?? null;
             if (f && f.size > 5 * 1024 * 1024) {

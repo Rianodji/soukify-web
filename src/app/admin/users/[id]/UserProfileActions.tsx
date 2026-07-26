@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { approveKyc, rejectKyc, suspendUser, unsuspendUser, changeUserRole, fetchAdminUserById } from "../../actions";
 import { Button } from "@/components/ui/Button";
 import { usePolledData } from "@/hooks/usePolledData";
-import { AuthenticatedDocumentImage } from "@/components/features/kyc/AuthenticatedDocumentImage";
+import { KycDocumentViewer } from "@/components/features/kyc/KycDocumentViewer";
 import type { AdminUser, UserRole } from "@/types/api";
 
 const ROLES: Array<{ value: UserRole; label: string }> = [
@@ -52,7 +52,7 @@ export function UserProfileActions({ userId, initialUser }: UserProfileActionsPr
       {hasSubmittedDocument && (
         <div className="space-y-2">
           <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide">Document soumis</p>
-          <AuthenticatedDocumentImage
+          <KycDocumentViewer
             src={`/api/admin/kyc-document/${userId}`}
             alt="Document d'identité soumis"
           />

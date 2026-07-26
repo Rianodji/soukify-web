@@ -4,7 +4,7 @@ import { CheckCircle, Clock, Shield } from "lucide-react";
 import { usePolledData } from "@/hooks/usePolledData";
 import { fetchMyProfile } from "../actions";
 import { KycForm } from "./KycForm";
-import { AuthenticatedDocumentImage } from "@/components/features/kyc/AuthenticatedDocumentImage";
+import { KycDocumentViewer } from "@/components/features/kyc/KycDocumentViewer";
 import type { MyProfile } from "@/types/api";
 
 export function KycStatusPanel({ initialProfile }: { initialProfile: MyProfile | null }) {
@@ -21,7 +21,7 @@ export function KycStatusPanel({ initialProfile }: { initialProfile: MyProfile |
             <p className="text-xs text-text-secondary mt-0.5">Votre identité a été vérifiée. Cela renforce la confiance avec les autres utilisateurs.</p>
           </div>
         </div>
-        <AuthenticatedDocumentImage src="/api/kyc-document" alt="Votre document soumis" />
+        <KycDocumentViewer src="/api/kyc-document" alt="Votre document soumis" />
       </div>
     );
   }
@@ -36,7 +36,7 @@ export function KycStatusPanel({ initialProfile }: { initialProfile: MyProfile |
             <p className="text-xs text-text-secondary mt-0.5">Votre document est en cours d&apos;examen. Comptez 24 à 48h.</p>
           </div>
         </div>
-        <AuthenticatedDocumentImage src="/api/kyc-document" alt="Votre document soumis" />
+        <KycDocumentViewer src="/api/kyc-document" alt="Votre document soumis" />
       </div>
     );
   }
@@ -57,7 +57,7 @@ export function KycStatusPanel({ initialProfile }: { initialProfile: MyProfile |
         {isErrorState && (
           <div className="space-y-1.5">
             <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide">Document précédemment soumis</p>
-            <AuthenticatedDocumentImage src="/api/kyc-document" alt="Votre document précédemment soumis" />
+            <KycDocumentViewer src="/api/kyc-document" alt="Votre document précédemment soumis" />
           </div>
         )}
         <p className="text-sm text-text-secondary leading-relaxed">
