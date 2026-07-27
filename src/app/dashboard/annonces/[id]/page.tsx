@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/Badge";
 import { CHAD_CITIES, ANNONCE_CONDITIONS, CATEGORY_STYLE, DEFAULT_CATEGORY_STYLE } from "@/lib/constants";
 import {
   updateAnnonce, publishAnnonce, renewAnnonce,
-  deleteOwnAnnonce, uploadAnnonceImages,
+  deleteOwnAnnonce, uploadAnnonceImage, fetchMyAnnonceById,
 } from "../../actions";
 import type { Category } from "@/types/api";
 
@@ -64,10 +64,10 @@ export default function AnnonceEditPage({ params }: { params: Promise<{ id: stri
 
     params.then(({ id }) => {
       setAnnonceId(id);
-      fetch(`${API_BASE}/annonces/${id}`, { credentials: "include" })
-        .then((r) => r.json())
+      fetchMyAnnonceById(id)
         .then((body) => {
-          const a: AnnonceData = body.data ?? body;
+          if (!body) { setError("Impossible de charger l'annonce."); return; }
+          const a = body as unknown as AnnonceData;
           setAnnonce(a);
           setTitle(a.title);
           setDescription(a.description);
@@ -113,15 +113,15 @@ export default function AnnonceEditPage({ params }: { params: Promise<{ id: stri
       return;
     }
     setActionError(null);
-    const formData = new FormData();
-    Array.from(files).forEach((f) => formData.append("images", f));
+    const selected = Array.from(files);
     startTransition(async () => {
       try {
-        await uploadAnnonceImages(annonceId, formData);
+        // API accepts one file per call — upload sequentially.
+        for (const f of selected) {
+          await uploadAnnonceImage(annonceId, f);
+        }
         // Refresh annonce (no endpoint returns the full image list — just the primary + count)
-        const r = await fetch(`${API_BASE}/annonces/${annonceId}`, { credentials: "include" });
-        const body = await r.json();
-        const updated: AnnonceData | undefined = body.data ?? body;
+        const updated = await fetchMyAnnonceById(annonceId);
         setAnnonce((a) => a ? {
           ...a,
           imagesCount: updated?.imagesCount ?? a.imagesCount,

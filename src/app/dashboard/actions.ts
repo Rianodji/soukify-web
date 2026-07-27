@@ -34,6 +34,21 @@ export async function fetchMyAnnonces(qs: string): Promise<PaginatedResponse<Ann
   return serverGet<PaginatedResponse<Annonce>>(`/users/me/annonces?${qs}`, 0);
 }
 
+/**
+ * The annonce management page (`/dashboard/annonces/:id`) previously fetched
+ * `GET /annonces/:id` directly from the browser with `credentials: "include"`
+ * — but the API authenticates via a Bearer token, not a cookie (it doesn't
+ * set cookies at all), so that fetch was never actually authenticated. It
+ * "worked" for an already-published (ACTIVE) annonce purely because that
+ * data is public, but always 404'd for a DRAFT one, since the API correctly
+ * hides unpublished annonces from unauthenticated requests — confirmed
+ * against real prod (cf. HANDOFF_INFRA.md, 2026-07-27). Routed through the
+ * same httpOnly-cookie server action pattern as everywhere else instead.
+ */
+export async function fetchMyAnnonceById(id: string): Promise<Annonce | null> {
+  return serverGet<Annonce>(`/annonces/${id}`, 0).catch((e: unknown) => { unstable_rethrow(e); return null; });
+}
+
 /** `GET /conversations` — raw array, no pagination wrapper (cf. HANDOFF_INFRA.md). */
 export interface DashboardConversation {
   id: string;
@@ -255,7 +270,17 @@ export async function renewAnnonce(id: string) {
   revalidatePath("/dashboard/annonces");
 }
 
-export async function uploadAnnonceImages(id: string, formData: FormData): Promise<void> {
+/**
+ * `POST /annonces/:id/images` (`AnnonceController_addImage`) takes exactly
+ * one file per call, field name `file` — not `images` (plural), and not
+ * multiple files in one request. The old signature accepted a whole
+ * FormData with several files all under "images", which the API rejected
+ * outright ("Unexpected field") — every image upload attempt failed (cf.
+ * HANDOFF_INFRA.md, 2026-07-27). Caller loops and calls this once per file.
+ */
+export async function uploadAnnonceImage(id: string, file: File): Promise<void> {
+  const formData = new FormData();
+  formData.append("file", file);
   await serverUpload(`/annonces/${id}/images`, formData);
   revalidatePath(`/dashboard/annonces/${id}`);
 }
