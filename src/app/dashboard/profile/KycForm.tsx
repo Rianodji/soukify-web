@@ -39,12 +39,12 @@ export function KycForm() {
     formData.append("expirationDate", expirationDate);
     formData.append("file", file);
     startTransition(async () => {
-      try {
-        await submitKyc(formData);
+      const result = await submitKyc(formData);
+      if (result.ok) {
         setSubmitted(true);
         router.refresh();
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "Impossible de soumettre le KYC.");
+      } else {
+        setError(result.message);
       }
     });
   }

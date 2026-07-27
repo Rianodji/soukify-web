@@ -2,8 +2,30 @@
 
 import { revalidatePath } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
-import { serverGet, serverPost, serverPatch, serverDelete, serverUpload } from "@/infrastructure/http/ApiServer";
+import { serverGet, serverPost, serverPatch, serverDelete, serverUpload, ServerApiError } from "@/infrastructure/http/ApiServer";
 import type { Annonce, MyProfile, NotificationsResponse, Order, PaginatedResponse, Shop, ShopStats, ShopSubscription } from "@/types/api";
+
+/**
+ * Next.js redacts the `.message` of any error a Server Action throws when
+ * running a production build — a client `try/catch` around the action call
+ * only ever sees "An error occurred in the Server Components render...",
+ * never the real message. This is invisible in `next dev` (messages pass
+ * through unsanitized there), which is why it went unnoticed all session —
+ * confirmed by reproducing the exact same action against real prod vs local
+ * dev with identical code (cf. HANDOFF_INFRA.md, 2026-07-27). The fix is to
+ * never let the action throw across that boundary: catch internally and
+ * return a result the caller can branch on directly.
+ */
+export type ActionResult<T> = { ok: true; data: T } | { ok: false; message: string };
+
+async function toResult<T>(promise: Promise<T>): Promise<ActionResult<T>> {
+  try {
+    return { ok: true, data: await promise };
+  } catch (e) {
+    unstable_rethrow(e);
+    return { ok: false, message: e instanceof ServerApiError ? e.message : "Une erreur est survenue." };
+  }
+}
 
 /**
  * `Promise.allSettled`/`.catch()` capture rejections instead of propagating
@@ -177,21 +199,23 @@ export async function createAnnonce(data: {
   negotiable: boolean;
   city: string;
   shopId?: string;
-}): Promise<{ id: string }> {
+}): Promise<ActionResult<{ id: string }>> {
   /* POST /annonces returns { annonceId }, not the full Annonce object —
    * this previously read `.id` (always undefined), so createAnnonce()
    * silently returned { id: undefined }. Harmless for "save as draft"
    * (the id is never used), but "publish now" then called
    * publishAnnonce(undefined) -> POST /annonces/undefined/publish, which
    * crashed uncaught in production (cf. HANDOFF_INFRA.md, 2026-07-27). */
-  const res = await serverPost<{ annonceId: string }>("/annonces", data);
+  const result = await toResult(serverPost<{ annonceId: string }>("/annonces", data));
+  if (!result.ok) return result;
   revalidatePath("/dashboard/annonces");
-  return { id: res.annonceId };
+  return { ok: true, data: { id: result.data.annonceId } };
 }
 
-export async function publishAnnonce(id: string) {
-  await serverPost(`/annonces/${id}/publish`);
-  revalidatePath("/dashboard/annonces");
+export async function publishAnnonce(id: string): Promise<ActionResult<void>> {
+  const result = await toResult(serverPost<void>(`/annonces/${id}/publish`));
+  if (result.ok) revalidatePath("/dashboard/annonces");
+  return result;
 }
 
 /* ── Boutique PRO ────────────────────────────────────────── */
@@ -202,72 +226,86 @@ export async function publishAnnonce(id: string) {
  * `{ shopId, message }`, not the full `Shop` object (same class of bug as
  * `createAnnonce` — cf. HANDOFF_INFRA.md, 2026-07-27).
  */
-export async function createShop(data: { name: string; slug: string; city: string; description?: string }): Promise<{ id: string }> {
-  const res = await serverPost<{ shopId: string }>("/pro/shops", data);
+export async function createShop(data: { name: string; slug: string; city: string; description?: string }): Promise<ActionResult<{ id: string }>> {
+  const result = await toResult(serverPost<{ shopId: string }>("/pro/shops", data));
+  if (!result.ok) return result;
   revalidatePath("/dashboard/boutique");
-  return { id: res.shopId };
+  return { ok: true, data: { id: result.data.shopId } };
 }
 
-export async function updateShop(shopId: string, data: { name?: string; description?: string }) {
-  await serverPatch(`/pro/shops/${shopId}`, data);
-  revalidatePath("/dashboard/boutique");
+export async function updateShop(shopId: string, data: { name?: string; description?: string }): Promise<ActionResult<void>> {
+  const result = await toResult(serverPatch<void>(`/pro/shops/${shopId}`, data));
+  if (result.ok) revalidatePath("/dashboard/boutique");
+  return result;
 }
 
-export async function changeSubscription(shopId: string, plan: ShopSubscription) {
-  await serverPost(`/pro/shops/${shopId}/subscription`, { plan });
-  revalidatePath("/dashboard/boutique");
+export async function changeSubscription(shopId: string, plan: ShopSubscription): Promise<ActionResult<void>> {
+  const result = await toResult(serverPost<void>(`/pro/shops/${shopId}/subscription`, { plan }));
+  if (result.ok) revalidatePath("/dashboard/boutique");
+  return result;
 }
 
-export async function addStaffMember(shopId: string, phoneNumber: string) {
-  await serverPost(`/pro/shops/${shopId}/staff`, { phoneNumber });
-  revalidatePath("/dashboard/boutique");
+export async function addStaffMember(shopId: string, phoneNumber: string): Promise<ActionResult<void>> {
+  const result = await toResult(serverPost<void>(`/pro/shops/${shopId}/staff`, { phoneNumber }));
+  if (result.ok) revalidatePath("/dashboard/boutique");
+  return result;
 }
 
-export async function changeStaffRole(shopId: string, userId: string, role: "MANAGER" | "STAFF") {
-  await serverPatch(`/pro/shops/${shopId}/staff/${userId}/role`, { role });
-  revalidatePath("/dashboard/boutique");
+export async function changeStaffRole(shopId: string, userId: string, role: "MANAGER" | "STAFF"): Promise<ActionResult<void>> {
+  const result = await toResult(serverPatch<void>(`/pro/shops/${shopId}/staff/${userId}/role`, { role }));
+  if (result.ok) revalidatePath("/dashboard/boutique");
+  return result;
 }
 
-export async function removeStaffMember(shopId: string, userId: string) {
-  await serverDelete(`/pro/shops/${shopId}/staff/${userId}`);
-  revalidatePath("/dashboard/boutique");
+export async function removeStaffMember(shopId: string, userId: string): Promise<ActionResult<void>> {
+  const result = await toResult(serverDelete<void>(`/pro/shops/${shopId}/staff/${userId}`));
+  if (result.ok) revalidatePath("/dashboard/boutique");
+  return result;
 }
 
-export async function uploadShopLogo(shopId: string, formData: FormData): Promise<void> {
-  await serverUpload(`/pro/shops/${shopId}/logo`, formData);
-  revalidatePath("/dashboard/boutique");
+export async function uploadShopLogo(shopId: string, formData: FormData): Promise<ActionResult<void>> {
+  const result = await toResult(serverUpload<void>(`/pro/shops/${shopId}/logo`, formData));
+  if (result.ok) revalidatePath("/dashboard/boutique");
+  return result;
 }
 
-export async function importShopCsv(shopId: string, formData: FormData): Promise<{ imported: number }> {
-  const result = await serverUpload<{ imported: number }>(
-    `/pro/shops/${shopId}/annonces/import`,
-    formData,
-  );
+export async function importShopCsv(shopId: string, formData: FormData): Promise<ActionResult<{ imported: number }>> {
+  const result = await toResult(serverUpload<{ imported: number }>(`/pro/shops/${shopId}/annonces/import`, formData));
+  if (!result.ok) return result;
   revalidatePath("/dashboard/boutique");
   revalidatePath("/dashboard/annonces");
-  return result ?? { imported: 0 };
+  return { ok: true, data: result.data ?? { imported: 0 } };
 }
 
-export async function deleteOwnAnnonce(annonceId: string) {
-  await serverDelete(`/annonces/${annonceId}`);
-  revalidatePath("/dashboard/boutique");
-  revalidatePath("/dashboard/annonces");
+export async function deleteOwnAnnonce(annonceId: string): Promise<ActionResult<void>> {
+  const result = await toResult(serverDelete<void>(`/annonces/${annonceId}`));
+  if (result.ok) {
+    revalidatePath("/dashboard/boutique");
+    revalidatePath("/dashboard/annonces");
+  }
+  return result;
 }
 
 /** `UpdateAnnonceDto` uses `priceXAF`, not `price` (cf. HANDOFF_INFRA.md, 2026-07-26). */
 export async function updateAnnonce(id: string, data: {
   title?: string; description?: string; priceXAF?: number;
   condition?: string; city?: string; categoryId?: string;
-}) {
-  await serverPatch(`/annonces/${id}`, data);
-  revalidatePath(`/dashboard/annonces/${id}`);
-  revalidatePath("/dashboard/annonces");
+}): Promise<ActionResult<void>> {
+  const result = await toResult(serverPatch<void>(`/annonces/${id}`, data));
+  if (result.ok) {
+    revalidatePath(`/dashboard/annonces/${id}`);
+    revalidatePath("/dashboard/annonces");
+  }
+  return result;
 }
 
-export async function renewAnnonce(id: string) {
-  await serverPost(`/annonces/${id}/renew`);
-  revalidatePath(`/dashboard/annonces/${id}`);
-  revalidatePath("/dashboard/annonces");
+export async function renewAnnonce(id: string): Promise<ActionResult<void>> {
+  const result = await toResult(serverPost<void>(`/annonces/${id}/renew`));
+  if (result.ok) {
+    revalidatePath(`/dashboard/annonces/${id}`);
+    revalidatePath("/dashboard/annonces");
+  }
+  return result;
 }
 
 /**
@@ -278,56 +316,72 @@ export async function renewAnnonce(id: string) {
  * outright ("Unexpected field") — every image upload attempt failed (cf.
  * HANDOFF_INFRA.md, 2026-07-27). Caller loops and calls this once per file.
  */
-export async function uploadAnnonceImage(id: string, file: File): Promise<void> {
+export async function uploadAnnonceImage(id: string, file: File): Promise<ActionResult<void>> {
   const formData = new FormData();
   formData.append("file", file);
-  await serverUpload(`/annonces/${id}/images`, formData);
-  revalidatePath(`/dashboard/annonces/${id}`);
+  const result = await toResult(serverUpload<void>(`/annonces/${id}/images`, formData));
+  if (result.ok) revalidatePath(`/dashboard/annonces/${id}`);
+  return result;
 }
 
 /* ── Orders ──────────────────────────────────────────────── */
 
-export async function confirmDelivery(orderId: string) {
-  await serverPost(`/orders/${orderId}/confirm-delivery`);
-  revalidatePath(`/dashboard/orders/${orderId}`);
-  revalidatePath("/dashboard/orders");
+export async function confirmDelivery(orderId: string): Promise<ActionResult<void>> {
+  const result = await toResult(serverPost<void>(`/orders/${orderId}/confirm-delivery`));
+  if (result.ok) {
+    revalidatePath(`/dashboard/orders/${orderId}`);
+    revalidatePath("/dashboard/orders");
+  }
+  return result;
 }
 
-export async function cancelOrder(orderId: string) {
-  await serverPost(`/orders/${orderId}/cancel`);
-  revalidatePath(`/dashboard/orders/${orderId}`);
-  revalidatePath("/dashboard/orders");
+export async function cancelOrder(orderId: string): Promise<ActionResult<void>> {
+  const result = await toResult(serverPost<void>(`/orders/${orderId}/cancel`));
+  if (result.ok) {
+    revalidatePath(`/dashboard/orders/${orderId}`);
+    revalidatePath("/dashboard/orders");
+  }
+  return result;
 }
 
-export async function disputeOrder(orderId: string, reason?: string) {
-  await serverPost(`/orders/${orderId}/dispute`, reason ? { reason } : undefined);
-  revalidatePath(`/dashboard/orders/${orderId}`);
-  revalidatePath("/dashboard/orders");
+export async function disputeOrder(orderId: string, reason?: string): Promise<ActionResult<void>> {
+  const result = await toResult(serverPost<void>(`/orders/${orderId}/dispute`, reason ? { reason } : undefined));
+  if (result.ok) {
+    revalidatePath(`/dashboard/orders/${orderId}`);
+    revalidatePath("/dashboard/orders");
+  }
+  return result;
 }
 
 /* ── Messages ────────────────────────────────────────────── */
 
-export async function sendMessage(conversationId: string, content: string): Promise<void> {
-  await serverPost(`/conversations/${conversationId}/messages`, { content });
-  revalidatePath(`/dashboard/messages/${conversationId}`);
+export async function sendMessage(conversationId: string, content: string): Promise<ActionResult<void>> {
+  const result = await toResult(serverPost<void>(`/conversations/${conversationId}/messages`, { content }));
+  if (result.ok) revalidatePath(`/dashboard/messages/${conversationId}`);
+  return result;
 }
 
-export async function markConversationRead(conversationId: string) {
-  await serverPost(`/conversations/${conversationId}/read`);
-  revalidatePath("/dashboard/messages");
+export async function markConversationRead(conversationId: string): Promise<ActionResult<void>> {
+  const result = await toResult(serverPost<void>(`/conversations/${conversationId}/read`));
+  if (result.ok) revalidatePath("/dashboard/messages");
+  return result;
 }
 
 /* ── Profile ─────────────────────────────────────────────── */
 
-export async function updateUserProfile(data: { name: string }) {
+export async function updateUserProfile(data: { name: string }): Promise<ActionResult<void>> {
   /* PATCH /users/me expects `displayName`, not `name` (cf. HANDOFF_INFRA.md,
    * confirmed against the DTO — same field GET /users/me returns). */
-  await serverPatch("/users/me", { displayName: data.name });
-  revalidatePath("/dashboard/profile");
-  revalidatePath("/dashboard");
+  const result = await toResult(serverPatch<void>("/users/me", { displayName: data.name }));
+  if (result.ok) {
+    revalidatePath("/dashboard/profile");
+    revalidatePath("/dashboard");
+  }
+  return result;
 }
 
-export async function submitKyc(formData: FormData): Promise<void> {
-  await serverUpload("/auth/kyc", formData);
-  revalidatePath("/dashboard/profile");
+export async function submitKyc(formData: FormData): Promise<ActionResult<void>> {
+  const result = await toResult(serverUpload<void>("/auth/kyc", formData));
+  if (result.ok) revalidatePath("/dashboard/profile");
+  return result;
 }

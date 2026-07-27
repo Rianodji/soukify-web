@@ -37,12 +37,9 @@ export function CsvImport({ shopId }: CsvImportProps) {
     const formData = new FormData();
     formData.append("file", file);
     startTransition(async () => {
-      try {
-        const res = await importShopCsv(shopId, formData);
-        setResult(res);
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "Échec de l'import CSV.");
-      }
+      const res = await importShopCsv(shopId, formData);
+      if (res.ok) setResult(res.data);
+      else setError(res.message);
     });
   }
 

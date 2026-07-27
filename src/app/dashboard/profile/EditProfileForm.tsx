@@ -21,12 +21,9 @@ export function EditProfileForm({ currentName }: EditProfileFormProps) {
     if (!name.trim() || name.trim() === currentName) return;
     setError(null); setSaved(false);
     startTransition(async () => {
-      try {
-        await updateUserProfile({ name: name.trim() });
-        setSaved(true);
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "Impossible de modifier le profil.");
-      }
+      const result = await updateUserProfile({ name: name.trim() });
+      if (result.ok) setSaved(true);
+      else setError(result.message);
     });
   }
 

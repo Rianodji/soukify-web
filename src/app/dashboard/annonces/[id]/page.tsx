@@ -88,14 +88,14 @@ export default function AnnonceEditPage({ params }: { params: Promise<{ id: stri
     e.preventDefault();
     setError(null); setSaved(false);
     startTransition(async () => {
-      try {
-        await updateAnnonce(annonceId, {
-          title, description, priceXAF: Number(price), condition, city, categoryId,
-        });
+      const result = await updateAnnonce(annonceId, {
+        title, description, priceXAF: Number(price), condition, city, categoryId,
+      });
+      if (result.ok) {
         setSaved(true);
         setAnnonce((a) => a ? { ...a, title, description, priceXAF: Number(price), condition, city, categoryId } : a);
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "Une erreur est survenue.");
+      } else {
+        setError(result.message);
       }
     });
   }
@@ -115,21 +115,21 @@ export default function AnnonceEditPage({ params }: { params: Promise<{ id: stri
     setActionError(null);
     const selected = Array.from(files);
     startTransition(async () => {
-      try {
-        // API accepts one file per call — upload sequentially.
-        for (const f of selected) {
-          await uploadAnnonceImage(annonceId, f);
+      // API accepts one file per call — upload sequentially.
+      for (const f of selected) {
+        const result = await uploadAnnonceImage(annonceId, f);
+        if (!result.ok) {
+          setActionError(result.message);
+          return;
         }
-        // Refresh annonce (no endpoint returns the full image list — just the primary + count)
-        const updated = await fetchMyAnnonceById(annonceId);
-        setAnnonce((a) => a ? {
-          ...a,
-          imagesCount: updated?.imagesCount ?? a.imagesCount,
-          primaryImageUrl: updated?.primaryImageUrl ?? a.primaryImageUrl,
-        } : a);
-      } catch (err: unknown) {
-        setActionError(err instanceof Error ? err.message : "Impossible d'ajouter cette image.");
       }
+      // Refresh annonce (no endpoint returns the full image list — just the primary + count)
+      const updated = await fetchMyAnnonceById(annonceId);
+      setAnnonce((a) => a ? {
+        ...a,
+        imagesCount: updated?.imagesCount ?? a.imagesCount,
+        primaryImageUrl: updated?.primaryImageUrl ?? a.primaryImageUrl,
+      } : a);
     });
   }
 
@@ -179,12 +179,9 @@ export default function AnnonceEditPage({ params }: { params: Promise<{ id: stri
             onClick={() => {
               setActionError(null);
               startTransition(async () => {
-                try {
-                  await publishAnnonce(annonce.id);
-                  setAnnonce((a) => a ? { ...a, status: "ACTIVE" } : a);
-                } catch (err: unknown) {
-                  setActionError(err instanceof Error ? err.message : "Impossible de publier l'annonce.");
-                }
+                const result = await publishAnnonce(annonce.id);
+                if (result.ok) setAnnonce((a) => a ? { ...a, status: "ACTIVE" } : a);
+                else setActionError(result.message);
               });
             }}>
             Publier maintenant
@@ -195,12 +192,9 @@ export default function AnnonceEditPage({ params }: { params: Promise<{ id: stri
             onClick={() => {
               setActionError(null);
               startTransition(async () => {
-                try {
-                  await renewAnnonce(annonce.id);
-                  setAnnonce((a) => a ? { ...a, status: "ACTIVE" } : a);
-                } catch (err: unknown) {
-                  setActionError(err instanceof Error ? err.message : "Impossible de renouveler l'annonce.");
-                }
+                const result = await renewAnnonce(annonce.id);
+                if (result.ok) setAnnonce((a) => a ? { ...a, status: "ACTIVE" } : a);
+                else setActionError(result.message);
               });
             }}>
             <RefreshCw className="w-4 h-4" /> Renouveler
@@ -212,12 +206,9 @@ export default function AnnonceEditPage({ params }: { params: Promise<{ id: stri
             if (confirm("Supprimer définitivement cette annonce ?")) {
               setActionError(null);
               startTransition(async () => {
-                try {
-                  await deleteOwnAnnonce(annonce.id);
-                  router.push("/dashboard/annonces");
-                } catch (err: unknown) {
-                  setActionError(err instanceof Error ? err.message : "Impossible de supprimer l'annonce.");
-                }
+                const result = await deleteOwnAnnonce(annonce.id);
+                if (result.ok) router.push("/dashboard/annonces");
+                else setActionError(result.message);
               });
             }
           }}>

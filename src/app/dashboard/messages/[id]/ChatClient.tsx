@@ -28,7 +28,7 @@ export function ChatClient({ conversationId, initialMessages, currentUserId, oth
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "instant" });
-    startTransition(() => markConversationRead(conversationId));
+    startTransition(() => { void markConversationRead(conversationId); });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

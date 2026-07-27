@@ -30,10 +30,9 @@ export function LogoUpload({ shopId, currentLogo, shopName }: LogoUploadProps) {
     const formData = new FormData();
     formData.append("logo", file);
     startTransition(async () => {
-      try {
-        await uploadShopLogo(shopId, formData);
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "Échec du téléchargement.");
+      const result = await uploadShopLogo(shopId, formData);
+      if (!result.ok) {
+        setError(result.message);
         setPreview(currentLogo ?? null);
       }
     });

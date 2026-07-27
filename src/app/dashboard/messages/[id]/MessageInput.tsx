@@ -17,7 +17,7 @@ export function MessageInput({ conversationId, bottomRef }: MessageInputProps) {
 
   useEffect(() => {
     // Mark as read on mount
-    startTransition(() => markConversationRead(conversationId));
+    startTransition(() => { void markConversationRead(conversationId); });
     // Scroll to bottom
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   // eslint-disable-next-line react-hooks/exhaustive-deps

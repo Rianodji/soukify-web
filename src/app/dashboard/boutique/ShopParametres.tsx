@@ -24,15 +24,12 @@ export function ShopParametres({ shopId, name: initialName, description: initial
     setError(null);
     setSaved(false);
     startTransition(async () => {
-      try {
-        await updateShop(shopId, {
-          name: name.trim(),
-          description: description.trim() || undefined,
-        });
-        setSaved(true);
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "Une erreur est survenue.");
-      }
+      const result = await updateShop(shopId, {
+        name: name.trim(),
+        description: description.trim() || undefined,
+      });
+      if (result.ok) setSaved(true);
+      else setError(result.message);
     });
   }
 

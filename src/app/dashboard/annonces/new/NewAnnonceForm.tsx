@@ -61,22 +61,19 @@ export function NewAnnonceForm({ categories, shopId }: NewAnnonceFormProps) {
   const submitForm = handleSubmit((data: FormData) => {
     setError(null);
     startTransition(async () => {
-      try {
-        const { id } = await createAnnonce({
-          title:       data.title,
-          description: data.description,
-          categoryId:  data.categoryId,
-          type:        data.type,
-          condition:   data.type === "SERVICE" ? "NEW" : (data.condition ?? "GOOD"),
-          priceXAF:    Number(data.price),
-          negotiable:  data.negotiable,
-          city:        data.city,
-          shopId,
-        });
-        router.push(`/dashboard/annonces/${id}`);
-      } catch (e: unknown) {
-        setError(e instanceof Error ? e.message : "Une erreur est survenue.");
-      }
+      const result = await createAnnonce({
+        title:       data.title,
+        description: data.description,
+        categoryId:  data.categoryId,
+        type:        data.type,
+        condition:   data.type === "SERVICE" ? "NEW" : (data.condition ?? "GOOD"),
+        priceXAF:    Number(data.price),
+        negotiable:  data.negotiable,
+        city:        data.city,
+        shopId,
+      });
+      if (result.ok) router.push(`/dashboard/annonces/${result.data.id}`);
+      else setError(result.message);
     });
   });
 

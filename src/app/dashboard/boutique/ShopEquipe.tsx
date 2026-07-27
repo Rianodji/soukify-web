@@ -32,12 +32,12 @@ export function ShopEquipe({ shopId, members, memberNames }: ShopEquipeProps) {
     if (!phone.trim()) return;
     setError(null);
     startTransition(async () => {
-      try {
-        await addStaffMember(shopId, phone.trim());
+      const result = await addStaffMember(shopId, phone.trim());
+      if (result.ok) {
         setPhone("");
         setShowAdd(false);
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "Impossible d'ajouter ce membre.");
+      } else {
+        setError(result.message);
       }
     });
   }
@@ -45,22 +45,16 @@ export function ShopEquipe({ shopId, members, memberNames }: ShopEquipeProps) {
   function handleRoleChange(userId: string, role: "MANAGER" | "STAFF") {
     setError(null);
     startTransition(async () => {
-      try {
-        await changeStaffRole(shopId, userId, role);
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "Impossible de changer le rôle.");
-      }
+      const result = await changeStaffRole(shopId, userId, role);
+      if (!result.ok) setError(result.message);
     });
   }
 
   function handleRemove(userId: string) {
     setError(null);
     startTransition(async () => {
-      try {
-        await removeStaffMember(shopId, userId);
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "Impossible de retirer ce membre.");
-      }
+      const result = await removeStaffMember(shopId, userId);
+      if (!result.ok) setError(result.message);
     });
   }
 

@@ -50,11 +50,8 @@ export function ShopAbonnement({ shopId, currentPlan }: ShopAbonnementProps) {
   function changePlan(plan: ShopSubscription) {
     setError(null);
     startTransition(async () => {
-      try {
-        await changeSubscription(shopId, plan);
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "Impossible de changer d'abonnement.");
-      }
+      const result = await changeSubscription(shopId, plan);
+      if (!result.ok) setError(result.message);
     });
   }
 

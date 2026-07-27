@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { confirmDelivery, cancelOrder, disputeOrder } from "../../actions";
+import { confirmDelivery, cancelOrder, disputeOrder, type ActionResult } from "../../actions";
 import type { OrderStatus } from "@/types/api";
 
 interface OrderActionsProps {
@@ -20,15 +20,12 @@ export function OrderActions({ orderId, status, isBuyer }: OrderActionsProps) {
   const [disputeReason, setDisputeReason] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  function run(action: () => Promise<void>) {
+  function run(action: () => Promise<ActionResult<void>>) {
     setError(null);
     startTransition(async () => {
-      try {
-        await action();
-        router.refresh();
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "Une erreur est survenue.");
-      }
+      const result = await action();
+      if (result.ok) router.refresh();
+      else setError(result.message);
     });
   }
 

@@ -32,17 +32,14 @@ export function CreateShopForm() {
     if (!name.trim() || slug.trim().length < 3 || !city) return;
     setError(null);
     startTransition(async () => {
-      try {
-        await createShop({
-          name: name.trim(),
-          slug: slug.trim(),
-          city,
-          description: description.trim() || undefined,
-        });
-        router.refresh();
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "Une erreur est survenue.");
-      }
+      const result = await createShop({
+        name: name.trim(),
+        slug: slug.trim(),
+        city,
+        description: description.trim() || undefined,
+      });
+      if (result.ok) router.refresh();
+      else setError(result.message);
     });
   }
 
