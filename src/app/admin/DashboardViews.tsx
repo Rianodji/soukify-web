@@ -15,6 +15,7 @@ import {
   type AccountManagerDashboardData, type FullAdminDashboardData,
 } from "./actions";
 import type { AuditEntry } from "@/types/api";
+import { formatAuditDetail } from "@/lib/utils";
 
 /* ── Shared stat card ────────────────────────────────────── */
 function StatCard({ label, value, sub, icon: Icon, iconColor, iconBg, href }: {
@@ -37,44 +38,47 @@ function StatCard({ label, value, sub, icon: Icon, iconColor, iconBg, href }: {
   return href ? <Link href={href}>{inner}</Link> : inner;
 }
 
+/**
+ * Real action strings currently emitted by the API (confirmed against every
+ * `AuditLog.create()` call site, cf. HANDOFF_INFRA.md, 2026-07-27) — only
+ * user-management/report/ticket actions exist today, no dedicated KYC/shop/
+ * order/payment/config actions yet, unlike the previous (guessed) labels.
+ */
 const AUDIT_LABELS: Record<string, string> = {
-  USER_SUSPENDED:   "Utilisateur suspendu",
-  USER_UNSUSPENDED: "Utilisateur réactivé",
-  KYC_APPROVED:     "KYC approuvé",
-  KYC_REJECTED:     "KYC rejeté",
-  SHOP_APPROVED:    "Boutique approuvée",
-  SHOP_REJECTED:    "Boutique rejetée",
-  SHOP_SUSPENDED:   "Boutique suspendue",
-  TICKET_RESOLVED:  "Ticket résolu",
-  REPORT_APPROVED:  "Signalement traité",
-  REPORT_DISMISSED: "Signalement ignoré",
-  CONFIG_UPDATED:   "Configuration modifiée",
-  ORDER_COMPLETED:  "Commande complétée",
-  PAYMENT_RECEIVED: "Paiement reçu",
-  PAYOUT_SENT:      "Payout effectué",
+  "user.suspend":     "Utilisateur suspendu",
+  "user.unsuspend":   "Utilisateur réactivé",
+  "user.role.add":    "Rôle ajouté",
+  "user.role.remove": "Rôle retiré",
+  "ticket.resolve":   "Ticket résolu",
+  "report.approve":   "Signalement traité",
+  "report.dismiss":   "Signalement ignoré",
 };
 
-function AuditList({ entries }: { entries: AuditEntry[] }) {
+function AuditList({ entries, actorNames }: { entries: AuditEntry[]; actorNames: Record<string, string> }) {
   if (entries.length === 0) {
     return <div className="flex items-center justify-center py-10 text-sm text-text-disabled">Aucune activité récente</div>;
   }
   return (
     <ul className="divide-y divide-border">
-      {entries.map((entry) => (
-        <li key={entry.id} className="px-5 py-3 flex items-start gap-3">
-          <div className="w-1.5 h-1.5 rounded-full bg-brand mt-2 shrink-0" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm text-text-primary">
-              {AUDIT_LABELS[entry.action] ?? entry.action}
-              {entry.adminName && <span className="text-text-disabled"> — {entry.adminName}</span>}
-            </p>
-            {entry.details && <p className="text-xs text-text-disabled truncate">{entry.details}</p>}
-          </div>
-          <span className="text-xs text-text-disabled shrink-0">
-            {new Date(entry.createdAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}
-          </span>
-        </li>
-      ))}
+      {entries.map((entry) => {
+        const actorName = actorNames[entry.actorId];
+        const detail = formatAuditDetail(entry);
+        return (
+          <li key={entry.id} className="px-5 py-3 flex items-start gap-3">
+            <div className="w-1.5 h-1.5 rounded-full bg-brand mt-2 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-text-primary">
+                {AUDIT_LABELS[entry.action] ?? entry.action}
+                {actorName && <span className="text-text-disabled"> — {actorName}</span>}
+              </p>
+              {detail && <p className="text-xs text-text-disabled truncate">{detail}</p>}
+            </div>
+            <span className="text-xs text-text-disabled shrink-0">
+              {new Date(entry.createdAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}
+            </span>
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -82,7 +86,7 @@ function AuditList({ entries }: { entries: AuditEntry[] }) {
 /* ── Finance-only dashboard ──────────────────────────────── */
 export function FinanceDashboardView({ initialData }: { initialData: FinanceDashboardData }) {
   const { data } = usePolledData("finance-dashboard", fetchFinanceDashboardData, initialData);
-  const { finance, config, auditEntries } = data ?? initialData;
+  const { finance, config, auditEntries, auditActorNames } = data ?? initialData;
 
   const commissionPct = config.commissionRatePct ?? 0;
   const gmv = finance.totalRevenue ?? 0;
@@ -208,7 +212,7 @@ export function FinanceDashboardView({ initialData }: { initialData: FinanceDash
             <h3 className="font-semibold text-text-primary">Activité récente</h3>
             <Link href="/admin/finance" className="text-xs text-brand hover:underline">Tout voir</Link>
           </div>
-          <AuditList entries={auditEntries} />
+          <AuditList entries={auditEntries} actorNames={auditActorNames} />
         </div>
       </div>
     </div>
@@ -222,7 +226,7 @@ export function SupportDashboardView({ initialData, currentUserId }: { initialDa
     () => fetchSupportDashboardData(currentUserId),
     initialData,
   );
-  const { urgentCount, normalCount, pendingReports, myTickets, userNames, auditEntries } = data ?? initialData;
+  const { urgentCount, normalCount, pendingReports, myTickets, userNames, auditEntries, auditActorNames } = data ?? initialData;
 
   const totalOpen = urgentCount + normalCount;
   const maxCount = Math.max(urgentCount, normalCount, 1);
@@ -358,7 +362,7 @@ export function SupportDashboardView({ initialData, currentUserId }: { initialDa
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <h3 className="font-semibold text-text-primary">Activité récente</h3>
         </div>
-        <AuditList entries={auditEntries} />
+        <AuditList entries={auditEntries} actorNames={auditActorNames} />
       </div>
     </div>
   );
@@ -367,7 +371,7 @@ export function SupportDashboardView({ initialData, currentUserId }: { initialDa
 /* ── Account Manager dashboard ──────────────────────────── */
 export function AccountManagerDashboardView({ initialData }: { initialData: AccountManagerDashboardData }) {
   const { data } = usePolledData("account-manager-dashboard", fetchAccountManagerDashboardData, initialData);
-  const { pendingShops, pendingTotal, approvedTotal, suspendedTotal, proUsersTotal, recentProUsers, auditEntries } = data ?? initialData;
+  const { pendingShops, pendingTotal, approvedTotal, suspendedTotal, proUsersTotal, recentProUsers, auditEntries, auditActorNames } = data ?? initialData;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-8 max-w-5xl mx-auto">
@@ -524,7 +528,7 @@ export function AccountManagerDashboardView({ initialData }: { initialData: Acco
         <div className="px-5 py-4 border-b border-border">
           <h3 className="font-semibold text-text-primary">Activité récente</h3>
         </div>
-        <AuditList entries={auditEntries} />
+        <AuditList entries={auditEntries} actorNames={auditActorNames} />
       </div>
     </div>
   );
@@ -541,7 +545,7 @@ export function FullAdminDashboard({ initialData, canViewFinance, isSuperAdmin }
   );
   const {
     usersTotal, pendingKyc, openTickets, pendingReports, pendingShops,
-    activeAnnonces, approvedShops, finance, auditEntries,
+    activeAnnonces, approvedShops, finance, auditEntries, auditActorNames,
   } = data ?? initialData;
 
   const urgentItems = [
@@ -637,7 +641,7 @@ export function FullAdminDashboard({ initialData, canViewFinance, isSuperAdmin }
             <h3 className="font-semibold text-text-primary">Journal d'activité</h3>
             <Link href="/admin/audit" className="text-xs text-brand hover:underline">Tout voir</Link>
           </div>
-          <AuditList entries={auditEntries} />
+          <AuditList entries={auditEntries} actorNames={auditActorNames} />
         </div>
       </div>
     </div>

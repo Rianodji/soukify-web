@@ -360,14 +360,21 @@ export interface Conversation {
 }
 
 /* ── Audit ──────────────────────────────────────────────── */
+/**
+ * `GET /admin/audit` real flat DTO (confirmed 2026-07-27, cf. HANDOFF_INFRA.md
+ * — was previously leaking the raw domain entity's private `.props` field).
+ * No resolved actor display name or free-text summary from the API — `actorId`
+ * is a raw user id and `payload` is the command's own shape (e.g. `{ role }`
+ * for `user.role.add`), not pre-formatted for display.
+ */
 export interface AuditEntry {
   id: string;
+  actorId: string;
   action: string;
-  adminId: string;
-  adminName?: string;
-  targetId?: string;
-  targetType?: string;
-  details?: string;
+  targetType: string;
+  targetId: string;
+  payload?: Record<string, unknown> | null;
+  ipAddress?: string;
   createdAt: string;
 }
 

@@ -104,6 +104,13 @@ export interface DashboardOverviewData {
   activeAnnonces: Annonce[];
   totalAnnonces: number;
   proShop: Shop | null;
+  /**
+   * Fresh from `GET /users/me`, not the JWT `roles` claim — the KYC banner
+   * used to be gated purely on having the SELLER role in the (stale) JWT,
+   * so it kept nagging an already-KYC-approved seller until they logged out
+   * and back in (cf. HANDOFF_INFRA.md, 2026-07-27).
+   */
+  canSell: boolean;
 }
 
 export async function fetchDashboardOverview(sellerMode: boolean, isPro: boolean): Promise<DashboardOverviewData> {
@@ -111,9 +118,10 @@ export async function fetchDashboardOverview(sellerMode: boolean, isPro: boolean
     serverGet<PaginatedResponse<Order>>("/orders?limit=5", 0),
     sellerMode ? serverGet<PaginatedResponse<Annonce>>("/users/me/annonces?limit=5&status=ACTIVE", 0) : Promise.resolve(null),
     isPro ? serverGet<{ shops: Shop[] }>("/pro/shops/me", 0) : Promise.resolve(null),
+    sellerMode ? serverGet<MyProfile>("/users/me", 0) : Promise.resolve(null),
   ]);
   rethrowIfRedirected(results);
-  const [orders, annonces, shopRes] = results;
+  const [orders, annonces, shopRes, profileRes] = results;
 
   return {
     recentOrders: orders.status === "fulfilled" ? orders.value.items : [],
@@ -121,6 +129,7 @@ export async function fetchDashboardOverview(sellerMode: boolean, isPro: boolean
     activeAnnonces: annonces.status === "fulfilled" && annonces.value ? annonces.value.items : [],
     totalAnnonces: annonces.status === "fulfilled" && annonces.value ? annonces.value.total : 0,
     proShop: shopRes.status === "fulfilled" && shopRes.value ? (shopRes.value.shops[0] ?? null) : null,
+    canSell: profileRes.status === "fulfilled" && profileRes.value ? profileRes.value.canSell : false,
   };
 }
 
@@ -286,10 +295,16 @@ export async function deleteOwnAnnonce(annonceId: string): Promise<ActionResult<
   return result;
 }
 
-/** `UpdateAnnonceDto` uses `priceXAF`, not `price` (cf. HANDOFF_INFRA.md, 2026-07-26). */
+/**
+ * `UpdateAnnonceDto` uses `priceXAF`, not `price` (cf. HANDOFF_INFRA.md,
+ * 2026-07-26). It also has **no `categoryId` field at all** (confirmed
+ * against `annonce.controller.ts:30-38`, cf. HANDOFF_INFRA.md, 2026-07-27) —
+ * sending it 400s with "property categoryId should not exist" since the API
+ * whitelists DTO properties. The category can only be set at creation time.
+ */
 export async function updateAnnonce(id: string, data: {
   title?: string; description?: string; priceXAF?: number;
-  condition?: string; city?: string; categoryId?: string;
+  condition?: string; city?: string;
 }): Promise<ActionResult<void>> {
   const result = await toResult(serverPatch<void>(`/annonces/${id}`, data));
   if (result.ok) {

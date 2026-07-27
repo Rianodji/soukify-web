@@ -3,6 +3,8 @@ import { getSession } from "@/lib/session";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { Settings2, AlertTriangle, Clock } from "lucide-react";
 import { ConfigForm } from "./ConfigForm";
+import { resolveUserNames } from "../actions";
+import { formatAuditDetail } from "@/lib/utils";
 import type { PlatformConfig, AuditEntry, PaginatedResponse } from "@/types/api";
 
 const DEFAULT_CONFIG: PlatformConfig = {
@@ -25,6 +27,7 @@ export default async function AdminConfigPage() {
 
   const config: PlatformConfig = configRes.status === "fulfilled" ? configRes.value : DEFAULT_CONFIG;
   const configHistory: AuditEntry[] = historyRes.status === "fulfilled" ? historyRes.value.items : [];
+  const actorNames = await resolveUserNames(configHistory.map((e) => e.actorId));
   const fetchError: string | null = configRes.status === "rejected"
     ? (configRes.reason instanceof Error ? configRes.reason.message : "Impossible de charger la configuration.")
     : null;
@@ -76,21 +79,25 @@ export default async function AdminConfigPage() {
             <h3 className="font-semibold text-text-primary text-sm">Historique des modifications</h3>
           </div>
           <ul className="divide-y divide-border">
-            {configHistory.map((entry) => (
-              <li key={entry.id} className="px-5 py-3 flex items-start gap-3">
-                <div className="w-1.5 h-1.5 rounded-full bg-gold mt-2 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-text-primary">
-                    Configuration modifiée
-                    {entry.adminName && <span className="text-text-disabled"> par {entry.adminName}</span>}
-                  </p>
-                  {entry.details && <p className="text-xs text-text-disabled">{entry.details}</p>}
-                </div>
-                <span className="text-xs text-text-disabled whitespace-nowrap">
-                  {new Date(entry.createdAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })}
-                </span>
-              </li>
-            ))}
+            {configHistory.map((entry) => {
+              const actorName = actorNames[entry.actorId];
+              const detail = formatAuditDetail(entry);
+              return (
+                <li key={entry.id} className="px-5 py-3 flex items-start gap-3">
+                  <div className="w-1.5 h-1.5 rounded-full bg-gold mt-2 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-text-primary">
+                      Configuration modifiée
+                      {actorName && <span className="text-text-disabled"> par {actorName}</span>}
+                    </p>
+                    {detail && <p className="text-xs text-text-disabled">{detail}</p>}
+                  </div>
+                  <span className="text-xs text-text-disabled whitespace-nowrap">
+                    {new Date(entry.createdAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}

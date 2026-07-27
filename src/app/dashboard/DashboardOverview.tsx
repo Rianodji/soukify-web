@@ -57,7 +57,7 @@ export function DashboardOverview({ initialData, sellerMode, adminMode, isPro }:
     () => fetchDashboardOverview(sellerMode, isPro),
     initialData,
   );
-  const { recentOrders, totalOrders, activeAnnonces, totalAnnonces, proShop } = data ?? initialData;
+  const { recentOrders, totalOrders, activeAnnonces, totalAnnonces, proShop, canSell } = data ?? initialData;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-8 max-w-5xl mx-auto">
@@ -320,7 +320,11 @@ export function DashboardOverview({ initialData, sellerMode, adminMode, isPro }:
       </div>
 
       {/* ── KYC alert for sellers ────────────────────────── */}
-      {sellerMode && (
+      {/* Gated on the fresh `canSell` (from `GET /users/me`), not just
+          `sellerMode` (stale JWT `roles` claim) — otherwise this kept
+          nagging an already-KYC-approved seller until their next login
+          (cf. HANDOFF_INFRA.md, 2026-07-27). */}
+      {sellerMode && !canSell && (
         <div className="flex items-start gap-3 p-4 rounded-xl bg-warning-light border border-accent-200">
           <AlertCircle className="w-5 h-5 text-warning mt-0.5 shrink-0" />
           <div className="flex-1">

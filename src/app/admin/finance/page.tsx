@@ -1,6 +1,7 @@
 import { unstable_rethrow } from "next/navigation";
 import { serverGet } from "@/infrastructure/http/ApiServer";
-import { formatPrice } from "@/lib/utils";
+import { formatPrice, formatAuditDetail } from "@/lib/utils";
+import { resolveUserNames } from "../actions";
 import {
   DollarSign, TrendingUp, ShoppingBag, Clock,
   ArrowUpRight, BarChart3, Percent,
@@ -42,14 +43,21 @@ function MiniBar({ value, max, colorClass }: { value: number; max: number; color
   );
 }
 
-/* ── Audit action labels ─────────────────────────────────── */
+/**
+ * Real action strings currently emitted by the API (confirmed against every
+ * `AuditLog.create()` call site, cf. HANDOFF_INFRA.md, 2026-07-27) — no
+ * dedicated order/payment/payout action strings exist yet, so this "journal
+ * des transactions" only ever shows user/report/ticket entries today, not
+ * actual financial events. Flagged to the API side as a gap.
+ */
 const AUDIT_LABELS: Record<string, { label: string; color: string }> = {
-  ORDER_COMPLETED:   { label: "Commande complétée",  color: "bg-success-light text-success" },
-  PAYMENT_RECEIVED:  { label: "Paiement reçu",        color: "bg-primary-100 text-brand" },
-  PAYOUT_SENT:       { label: "Payout effectué",      color: "bg-accent-100 text-gold" },
-  COMMISSION_EARNED: { label: "Commission générée",   color: "bg-accent-100 text-gold" },
-  REFUND_ISSUED:     { label: "Remboursement émis",   color: "bg-error-light text-error" },
-  DISPUTE_RESOLVED:  { label: "Litige résolu",        color: "bg-warning-light text-warning" },
+  "user.suspend":     { label: "Utilisateur suspendu",  color: "bg-error-light text-error" },
+  "user.unsuspend":   { label: "Utilisateur réactivé",  color: "bg-success-light text-success" },
+  "user.role.add":    { label: "Rôle ajouté",            color: "bg-primary-100 text-brand" },
+  "user.role.remove": { label: "Rôle retiré",            color: "bg-warning-light text-warning" },
+  "ticket.resolve":   { label: "Ticket résolu",          color: "bg-success-light text-success" },
+  "report.approve":   { label: "Signalement traité",     color: "bg-success-light text-success" },
+  "report.dismiss":   { label: "Signalement ignoré",     color: "bg-border text-text-secondary" },
 };
 
 export default async function AdminFinancePage() {
@@ -63,6 +71,7 @@ export default async function AdminFinancePage() {
   const data: Partial<FinanceDashboard> = dataRes.status === "fulfilled" ? dataRes.value : {};
   const config: Partial<PlatformConfig> = configRes.status === "fulfilled" ? configRes.value : {};
   const auditEntries: AuditEntry[] = auditRes.status === "fulfilled" ? auditRes.value.items : [];
+  const auditActorNames = await resolveUserNames(auditEntries.map((e) => e.actorId));
 
   const gmv = data.totalRevenue ?? 0;
   const totalCommissions = data.totalCommissions ?? 0;
@@ -279,17 +288,19 @@ export default async function AdminFinancePage() {
           <ul className="divide-y divide-border">
             {auditEntries.map((entry) => {
               const conf = AUDIT_LABELS[entry.action];
+              const actorName = auditActorNames[entry.actorId];
+              const detail = formatAuditDetail(entry);
               return (
                 <li key={entry.id} className="px-5 py-3.5 flex items-center gap-4">
                   <div className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap ${conf?.color ?? "bg-border text-text-secondary"}`}>
                     {conf?.label ?? entry.action}
                   </div>
                   <div className="flex-1 min-w-0">
-                    {entry.details && (
-                      <p className="text-sm text-text-primary truncate">{entry.details}</p>
+                    {detail && (
+                      <p className="text-sm text-text-primary truncate">{detail}</p>
                     )}
-                    {entry.adminName && (
-                      <p className="text-xs text-text-disabled">Par {entry.adminName}</p>
+                    {actorName && (
+                      <p className="text-xs text-text-disabled">Par {actorName}</p>
                     )}
                   </div>
                   <span className="text-xs text-text-disabled whitespace-nowrap">

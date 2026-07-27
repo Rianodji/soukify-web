@@ -12,7 +12,7 @@ export default async function DashboardPage() {
   const isPro      = session.roles.includes("PRO_SELLER");
 
   let initialData: DashboardOverviewData = {
-    recentOrders: [], totalOrders: 0, activeAnnonces: [], totalAnnonces: 0, proShop: null,
+    recentOrders: [], totalOrders: 0, activeAnnonces: [], totalAnnonces: 0, proShop: null, canSell: false,
   };
   try {
     initialData = await fetchDashboardOverview(sellerMode, isPro);

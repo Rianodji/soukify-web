@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { CHAD_CITIES, ANNONCE_CONDITIONS, CATEGORY_STYLE, DEFAULT_CATEGORY_STYLE } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 import {
   updateAnnonce, publishAnnonce, renewAnnonce,
   deleteOwnAnnonce, uploadAnnonceImage, fetchMyAnnonceById,
@@ -89,11 +90,11 @@ export default function AnnonceEditPage({ params }: { params: Promise<{ id: stri
     setError(null); setSaved(false);
     startTransition(async () => {
       const result = await updateAnnonce(annonceId, {
-        title, description, priceXAF: Number(price), condition, city, categoryId,
+        title, description, priceXAF: Number(price), condition, city,
       });
       if (result.ok) {
         setSaved(true);
-        setAnnonce((a) => a ? { ...a, title, description, priceXAF: Number(price), condition, city, categoryId } : a);
+        setAnnonce((a) => a ? { ...a, title, description, priceXAF: Number(price), condition, city } : a);
       } else {
         setError(result.message);
       }
@@ -286,12 +287,17 @@ export default function AnnonceEditPage({ params }: { params: Promise<{ id: stri
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-text-secondary">Catégorie</label>
-            <select value={categoryId} onChange={(e) => { setCategoryId(e.target.value); setSaved(false); }} className={fieldCls}>
+            {/* L'API ne permet pas de changer la catégorie après création
+                (`UpdateAnnonceDto` n'a pas de champ `categoryId`, cf.
+                HANDOFF_INFRA.md, 2026-07-27) — champ affiché en lecture
+                seule pour éviter un 400 silencieux sur "Enregistrer". */}
+            <select value={categoryId} disabled className={cn(fieldCls, "opacity-60 cursor-not-allowed")}>
               {categories.map((c) => {
                 const style = CATEGORY_STYLE[c.slug] ?? DEFAULT_CATEGORY_STYLE;
                 return (<option key={c.id} value={c.id}>{c.icon ?? style.icon} {c.name}</option>);
               })}
             </select>
+            <p className="text-xs text-text-disabled">Non modifiable après création.</p>
           </div>
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-text-secondary">Ville</label>

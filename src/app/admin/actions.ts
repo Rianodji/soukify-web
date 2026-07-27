@@ -67,7 +67,7 @@ async function resolveUserProfiles(ids: Array<string | undefined>): Promise<Reco
   return byId;
 }
 
-async function resolveUserNames(ids: Array<string | undefined>): Promise<Record<string, string>> {
+export async function resolveUserNames(ids: Array<string | undefined>): Promise<Record<string, string>> {
   const profiles = await resolveUserProfiles(ids);
   return Object.fromEntries(Object.entries(profiles).map(([id, p]) => [id, p.displayName]));
 }
@@ -117,6 +117,8 @@ export interface FinanceDashboardData {
   finance: Partial<FinanceDashboard>;
   config: Partial<PlatformConfig>;
   auditEntries: AuditEntry[];
+  /** `AuditEntry` only carries `actorId` — resolved display names, keyed by userId. */
+  auditActorNames: Record<string, string>;
 }
 
 export async function fetchFinanceDashboardData(): Promise<FinanceDashboardData> {
@@ -129,8 +131,9 @@ export async function fetchFinanceDashboardData(): Promise<FinanceDashboardData>
     serverGet<PlatformConfig>("/admin/config", 0).then((r) => { config = r; }),
     serverGet<PaginatedResponse<AuditEntry>>("/admin/audit?limit=8", 0).then((r) => { auditEntries = r.items; }),
   ]));
+  const auditActorNames = await resolveUserNames(auditEntries.map((e) => e.actorId));
 
-  return { finance, config, auditEntries };
+  return { finance, config, auditEntries, auditActorNames };
 }
 
 export interface SupportDashboardData {
@@ -140,6 +143,8 @@ export interface SupportDashboardData {
   /** `Ticket` only carries `reporterId` — resolved display names, keyed by userId. */
   userNames: Record<string, string>;
   auditEntries: AuditEntry[];
+  /** `AuditEntry` only carries `actorId` — resolved display names, keyed by userId. */
+  auditActorNames: Record<string, string>;
 }
 
 export async function fetchSupportDashboardData(userId?: string): Promise<SupportDashboardData> {
@@ -165,8 +170,9 @@ export async function fetchSupportDashboardData(userId?: string): Promise<Suppor
   ]));
 
   const userNames = await resolveUserNames(myTickets.map((t) => t.reporterId));
+  const auditActorNames = await resolveUserNames(auditEntries.map((e) => e.actorId));
 
-  return { urgentCount, normalCount, pendingReports, myTickets, userNames, auditEntries };
+  return { urgentCount, normalCount, pendingReports, myTickets, userNames, auditEntries, auditActorNames };
 }
 
 export interface AccountManagerDashboardData {
@@ -174,6 +180,8 @@ export interface AccountManagerDashboardData {
   pendingTotal: number; approvedTotal: number; suspendedTotal: number; proUsersTotal: number;
   recentProUsers: AdminUser[];
   auditEntries: AuditEntry[];
+  /** `AuditEntry` only carries `actorId` — resolved display names, keyed by userId. */
+  auditActorNames: Record<string, string>;
 }
 
 export async function fetchAccountManagerDashboardData(): Promise<AccountManagerDashboardData> {
@@ -193,13 +201,19 @@ export async function fetchAccountManagerDashboardData(): Promise<AccountManager
       .then((r) => { proUsersTotal = r.total; }),
     serverGet<PaginatedResponse<AdminUser>>("/admin/users?role=PRO_SELLER&limit=6", 0)
       .then((r) => { recentProUsers = r.items; }),
+    /* Only `user.*` audit actions exist today (cf. HANDOFF_INFRA.md,
+     * 2026-07-27) — no dedicated SHOP/KYC action strings are emitted yet, so
+     * this filter only ever matches USER-targeted entries in practice. Kept
+     * broad (matches on `targetType` now, the real field) in case shop/KYC
+     * auditing is added later without needing a web-side change. */
     serverGet<PaginatedResponse<AuditEntry>>("/admin/audit?limit=8", 0)
       .then((r) => { auditEntries = r.items.filter((e) =>
-        e.action.includes("SHOP") || e.action.includes("KYC") || e.action.includes("USER")
+        ["SHOP", "USER"].includes(e.targetType) || e.action.toLowerCase().includes("kyc")
       ); }),
   ]));
+  const auditActorNames = await resolveUserNames(auditEntries.map((e) => e.actorId));
 
-  return { pendingShops, pendingTotal, approvedTotal, suspendedTotal, proUsersTotal, recentProUsers, auditEntries };
+  return { pendingShops, pendingTotal, approvedTotal, suspendedTotal, proUsersTotal, recentProUsers, auditEntries, auditActorNames };
 }
 
 export interface FullAdminDashboardData {
@@ -207,6 +221,8 @@ export interface FullAdminDashboardData {
   pendingShops: number; activeAnnonces: number; approvedShops: number;
   finance: Partial<FinanceDashboard>;
   auditEntries: AuditEntry[];
+  /** `AuditEntry` only carries `actorId` — resolved display names, keyed by userId. */
+  auditActorNames: Record<string, string>;
 }
 
 export async function fetchFullAdminDashboardData(canViewFinance: boolean): Promise<FullAdminDashboardData> {
@@ -241,8 +257,9 @@ export async function fetchFullAdminDashboardData(canViewFinance: boolean): Prom
     serverGet<PaginatedResponse<AuditEntry>>("/admin/audit?limit=10", 0)
       .then((r) => { auditEntries = r.items; }),
   ]));
+  const auditActorNames = await resolveUserNames(auditEntries.map((e) => e.actorId));
 
-  return { usersTotal, pendingKyc, openTickets, pendingReports, pendingShops, activeAnnonces, approvedShops, finance, auditEntries };
+  return { usersTotal, pendingKyc, openTickets, pendingReports, pendingShops, activeAnnonces, approvedShops, finance, auditEntries, auditActorNames };
 }
 
 /* ── Users ───────────────────────────────────────────────── */
