@@ -2,9 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, BellOff, Check } from "lucide-react";
+import { toast } from "sonner";
+import { Bell, BellOff, Check, MessageSquare } from "lucide-react";
 import { usePolledData } from "@/hooks/usePolledData";
-import { fetchNotifications, markNotificationRead, markAllNotificationsRead } from "@/app/dashboard/actions";
+import { fetchNotifications, markNotificationRead, markAllNotificationsRead, createConversation } from "@/app/dashboard/actions";
 import type { AppNotification, NotificationsResponse } from "@/types/api";
 
 const EMPTY: NotificationsResponse = { items: [], total: 0, unreadCount: 0 };
@@ -28,6 +29,7 @@ function getHref(n: AppNotification): string {
     case "KYC_EXPIRED":
       return "/dashboard/profile";
     case "ANNONCE_EXPIRED":
+    case "ANNONCE_VIEWED":
       return data.annonceId ? `/dashboard/annonces/${data.annonceId}` : "/dashboard/annonces";
     default:
       return "/dashboard";
@@ -72,6 +74,27 @@ export function NotificationsButton({ size = "w-9 h-9" }: { size?: string }) {
     });
   }
 
+  /**
+   * `ANNONCE_VIEWED` — le vendeur répond au visiteur. Depuis `v1.0.21`,
+   * `StartConversationHandler` déduit qui est buyer/seller à partir de la
+   * relation réelle appelant/annonce, donc l'appelant (le vendeur) peut
+   * passer `data.viewerId` comme `otherUserId` sans être rejeté (cf.
+   * HANDOFF_INFRA.md, 2026-07-28).
+   */
+  function handleReply(n: AppNotification, e: React.MouseEvent) {
+    e.stopPropagation();
+    const { annonceId, viewerId } = n.data ?? {};
+    if (!annonceId || !viewerId) return;
+    setOpen(false);
+    startTransition(async () => {
+      if (!n.isRead) await markNotificationRead(n.id);
+      const result = await createConversation(annonceId, viewerId);
+      if (result.ok) router.push(`/dashboard/messages?conversation=${result.data.id}`);
+      else toast.error(result.message);
+      await mutate();
+    });
+  }
+
   return (
     <div className="relative">
       <button
@@ -112,21 +135,32 @@ export function NotificationsButton({ size = "w-9 h-9" }: { size?: string }) {
             ) : (
               <ul className="max-h-96 overflow-y-auto divide-y divide-border">
                 {notifications.map((n) => (
-                  <li key={n.id}>
-                    <button
-                      type="button"
-                      onClick={() => handleClick(n)}
-                      className={`w-full text-left px-4 py-3 flex items-start gap-2.5 hover:bg-primary-50 transition-colors ${!n.isRead ? "bg-primary-50/50" : ""}`}
-                    >
-                      <span className={`mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 ${!n.isRead ? "bg-brand" : "bg-transparent"}`} />
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm truncate ${!n.isRead ? "font-semibold text-text-primary" : "font-medium text-text-secondary"}`}>
-                          {n.title}
-                        </p>
-                        <p className="text-xs text-text-secondary line-clamp-2 mt-0.5">{n.body}</p>
-                        <p className="text-xs text-text-disabled mt-1">{timeAgo(n.createdAt)}</p>
-                      </div>
-                    </button>
+                  <li
+                    key={n.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleClick(n)}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleClick(n); }}
+                    className={`w-full text-left px-4 py-3 flex items-start gap-2.5 hover:bg-primary-50 transition-colors cursor-pointer ${!n.isRead ? "bg-primary-50/50" : ""}`}
+                  >
+                    <span className={`mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 ${!n.isRead ? "bg-brand" : "bg-transparent"}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm truncate ${!n.isRead ? "font-semibold text-text-primary" : "font-medium text-text-secondary"}`}>
+                        {n.title}
+                      </p>
+                      <p className="text-xs text-text-secondary line-clamp-2 mt-0.5">{n.body}</p>
+                      <p className="text-xs text-text-disabled mt-1">{timeAgo(n.createdAt)}</p>
+                      {n.type === "ANNONCE_VIEWED" && n.data?.viewerId && (
+                        <button
+                          type="button"
+                          disabled={pending}
+                          onClick={(e) => handleReply(n, e)}
+                          className="mt-1.5 flex items-center gap-1 text-xs text-brand hover:underline disabled:opacity-50"
+                        >
+                          <MessageSquare className="w-3 h-3" /> Répondre
+                        </button>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>

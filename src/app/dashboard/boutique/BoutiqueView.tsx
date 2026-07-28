@@ -30,10 +30,10 @@ const TABS: Array<{ id: Tab; label: string }> = [
 ];
 
 const STATUS_LABELS: Record<string, string> = {
-  ACTIVE: "Active", DRAFT: "Brouillon", SOLD: "Vendue", EXPIRED: "Expirée", DELETED: "Supprimée",
+  ACTIVE: "Active", DRAFT: "Brouillon", SOLD: "Vendue", EXPIRED: "Expirée", ARCHIVED: "Archivée", DELETED: "Supprimée",
 };
 const STATUS_VARIANTS: Record<string, "success" | "warning" | "neutral" | "error"> = {
-  ACTIVE: "success", DRAFT: "warning", SOLD: "neutral", EXPIRED: "error", DELETED: "error",
+  ACTIVE: "success", DRAFT: "warning", SOLD: "neutral", EXPIRED: "error", ARCHIVED: "neutral", DELETED: "error",
 };
 
 interface BoutiqueViewProps {
@@ -312,7 +312,7 @@ export function BoutiqueView({ initialData, tab, annonceStatus }: BoutiqueViewPr
 
           {/* Status filter */}
           <div className="flex gap-2 flex-wrap">
-            {["", "ACTIVE", "DRAFT", "SOLD", "EXPIRED"].map((s) => (
+            {["", "ACTIVE", "DRAFT", "SOLD", "EXPIRED", "ARCHIVED"].map((s) => (
               <Link
                 key={s}
                 href={`/dashboard/boutique?tab=annonces${s ? `&status=${s}` : ""}`}

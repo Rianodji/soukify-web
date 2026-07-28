@@ -20,9 +20,18 @@ const schema = z.object({
   categoryId:  z.string().min(1, "Choisissez une catégorie"),
   type:        z.enum(["SALE", "SERVICE"]),
   condition:   z.string().optional(),
-  price:       z.string().min(1, "Requis"),
+  /* Plus de plafond arbitraire ici : les colonnes monétaires sont passées
+   * en BigInt côté API (cf. HANDOFF_INFRA.md, 2026-07-27), qui applique
+   * elle-même désormais une borne purement technique (~90 000 milliards
+   * XAF, limite de précision exacte d'un `number` JS) avec un message
+   * clair en cas de dépassement — pas besoin de dupliquer une règle
+   * business ici, conformément à la demande de Rianodji. */
+  price:       z.string().min(1, "Requis")
+    .refine((v) => Number.isFinite(Number(v)), "Prix invalide"),
   negotiable:  z.boolean(),
   city:        z.string().min(1, "Choisissez une ville"),
+  /** Optionnel côté API, défaut 1 — utile pour du stock (plusieurs unités identiques), cf. HANDOFF_INFRA.md, 2026-07-27. */
+  quantity:    z.string().refine((v) => !v || (Number.isInteger(Number(v)) && Number(v) >= 1), "Doit être un entier ≥ 1"),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -40,7 +49,7 @@ export function NewAnnonceForm({ categories, shopId }: NewAnnonceFormProps) {
 
   const { register, control, watch, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { type: "SALE", condition: "GOOD", negotiable: false },
+    defaultValues: { type: "SALE", condition: "GOOD", negotiable: false, quantity: "1" },
   });
 
   const type = watch("type");
@@ -71,6 +80,7 @@ export function NewAnnonceForm({ categories, shopId }: NewAnnonceFormProps) {
         negotiable:  data.negotiable,
         city:        data.city,
         shopId,
+        quantity:    data.type === "SALE" ? Number(data.quantity || "1") : undefined,
       });
       if (result.ok) router.push(`/dashboard/annonces/${result.data.id}`);
       else setError(result.message);
@@ -217,6 +227,20 @@ export function NewAnnonceForm({ categories, shopId }: NewAnnonceFormProps) {
               </div>
             )}
           </div>
+
+          {type === "SALE" && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-text-secondary">Quantité disponible</label>
+              <Input
+                {...register("quantity")}
+                type="number"
+                min={1}
+                placeholder="1"
+              />
+              {errors.quantity && <p className="text-xs text-error">{errors.quantity.message}</p>}
+              <p className="text-xs text-text-disabled">Nombre d&apos;unités identiques en stock — décrémenté à chaque vente.</p>
+            </div>
+          )}
         </div>
 
         {/* Localisation */}

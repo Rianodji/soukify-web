@@ -103,7 +103,7 @@ export interface MyProfile {
 }
 
 /* ── Annonce ────────────────────────────────────────────── */
-export type AnnonceStatus = "DRAFT" | "ACTIVE" | "SOLD" | "EXPIRED" | "DELETED";
+export type AnnonceStatus = "DRAFT" | "ACTIVE" | "SOLD" | "EXPIRED" | "ARCHIVED" | "DELETED";
 export type AnnonceType = "SALE" | "SERVICE";
 export type AnnonceCondition = "NEW" | "LIKE_NEW" | "GOOD" | "FAIR" | "POOR";
 
@@ -137,8 +137,19 @@ export interface Annonce {
   viewCount?: number;
   favoriteCount?: number;
   imagesCount?: number;
-  /** Full URL — only on `GET /search/annonces` and `GET /annonces/:id`. */
+  /** Stock restant — décrémenté automatiquement au paiement confirmé, `SOLD` auto à 0 (cf. HANDOFF_INFRA.md, 2026-07-27). */
+  quantity?: number;
+  /**
+   * Full URL built server-side from the API's own `BASE_URL` env var — in
+   * production this has been observed pointing at `http://localhost:3020`
+   * (misconfigured env, cf. HANDOFF_INFRA.md, 2026-07-27), so this field
+   * alone isn't reliable. Prefer `primaryImageStorageKey` via
+   * `getAnnonceImageUrl()`, which rebuilds the URL from our own configured
+   * API origin instead of trusting this one.
+   */
   primaryImageUrl?: string;
+  /** Storage key — present alongside `primaryImageUrl` on `GET /search/annonces` and `GET /annonces/:id`. */
+  primaryImageStorageKey?: string;
   /** Storage key (not a URL) — only on `GET /users/me/annonces`. */
   primaryImage?: string;
   createdAt: string;
@@ -179,6 +190,7 @@ export interface Order {
   annonceTitle?: string;
   buyerId: string;
   sellerId: string;
+  quantity?: number;
   annoncePriceCents: number;
   deliveryFeeCents: number;
   commissionCents: number;
@@ -408,7 +420,7 @@ export type NotificationType =
   | "ORDER_CREATED" | "ORDER_CONFIRMED" | "ORDER_COMPLETED" | "ORDER_CANCELLED"
   | "DISPUTE_OPENED" | "SHOP_APPROVED" | "SHOP_REJECTED" | "SHOP_SUSPENDED"
   | "KYC_APPROVED" | "KYC_REJECTED" | "KYC_EXPIRING_SOON" | "KYC_EXPIRED"
-  | "TICKET_RESOLVED" | "ANNONCE_EXPIRED";
+  | "TICKET_RESOLVED" | "ANNONCE_EXPIRED" | "ANNONCE_VIEWED";
 
 export interface AppNotification {
   id: string;

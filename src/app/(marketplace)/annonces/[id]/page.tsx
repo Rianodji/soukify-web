@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, MapPin, Clock, Shield } from "lucide-react";
@@ -22,10 +23,28 @@ function timeAgo(dateStr: string): string {
   return `il y a ${days} jour${days > 1 ? "s" : ""}`;
 }
 
+/**
+ * `GET /annonces/:id` is `@Public()` — works with or without a token — but
+ * previously never attached one at all, so the API always saw an anonymous
+ * caller. Two real consequences, found by testing: `ANNONCE_VIEWED` (which
+ * requires an *authenticated* viewer, never anonymous) could never fire for
+ * a real logged-in visitor, and a logged-in owner viewing their own DRAFT
+ * would 404 instead of being recognized as the owner (cf. HANDOFF_INFRA.md,
+ * 2026-07-28). Reads the httpOnly cookie directly (not `serverGet`, whose
+ * 401 -> logout-redirect behavior is wrong here: a random visitor with a
+ * stale/garbage cookie should silently degrade to an anonymous view, not
+ * get bounced to /login). `cache: "no-store"` — the response depends on
+ * who's asking (owner sees DRAFT, view-count side effect per caller), so
+ * the previous `revalidate: 60` risked serving one visitor's cached
+ * response (anonymous or not) to a different one.
+ */
 async function getAnnonce(id: string): Promise<Annonce | null> {
   try {
+    const jar = await cookies();
+    const token = jar.get("sk_access")?.value;
     const res = await fetch(`${API_BASE}/annonces/${id}`, {
-      next: { revalidate: 60 },
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      cache: "no-store",
     });
     if (!res.ok) return null;
     const body = await res.json() as { data: Annonce };
@@ -100,6 +119,9 @@ export default async function AnnoncePage({ params }: AnnoncePageProps) {
                 { label: "État",      value: ANNONCE_CONDITIONS[annonce.condition] ?? annonce.condition },
                 { label: "Ville",     value: annonce.city },
                 { label: "Publié",    value: timeAgo(annonce.createdAt) },
+                ...(annonce.type === "SALE" && annonce.quantity !== undefined
+                  ? [{ label: "Stock", value: annonce.quantity > 0 ? `${annonce.quantity} disponible${annonce.quantity > 1 ? "s" : ""}` : "Épuisé" }]
+                  : []),
               ].map(({ label, value }) => (
                 <div key={label}>
                   <dt className="text-text-disabled text-xs uppercase tracking-wide">{label}</dt>
@@ -174,10 +196,11 @@ export default async function AnnoncePage({ params }: AnnoncePageProps) {
               annonceId={annonce.id}
               sellerId={annonce.sellerId ?? ""}
               sellerPhone={undefined}
-              price={priceXAF}
               city={annonce.city}
               isAuthenticated={isAuthenticated}
               isSeller={isSeller}
+              quantityAvailable={annonce.quantity ?? 1}
+              status={annonce.status}
             />
 
             {/* Trust badge */}

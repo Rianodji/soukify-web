@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  ChevronLeft, Package, Eye, Trash2, RefreshCw, Upload, AlertCircle, CheckCircle,
+  ChevronLeft, Package, Eye, Trash2, RefreshCw, Upload, AlertCircle, CheckCircle, Archive, ArchiveRestore,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -14,27 +14,39 @@ import { cn } from "@/lib/utils";
 import {
   updateAnnonce, publishAnnonce, renewAnnonce,
   deleteOwnAnnonce, uploadAnnonceImage, fetchMyAnnonceById,
+  archiveAnnonce, unarchiveAnnonce,
 } from "../../actions";
 import type { Category } from "@/types/api";
 
 const STATUS_LABELS: Record<string, string> = {
-  ACTIVE: "Active", DRAFT: "Brouillon", SOLD: "Vendue", EXPIRED: "Expirée", DELETED: "Supprimée",
+  ACTIVE: "Active", DRAFT: "Brouillon", SOLD: "Vendue", EXPIRED: "Expirée", ARCHIVED: "Archivée", DELETED: "Supprimée",
 };
 const STATUS_VARIANTS: Record<string, "success" | "warning" | "neutral" | "error"> = {
-  ACTIVE: "success", DRAFT: "warning", SOLD: "neutral", EXPIRED: "error", DELETED: "error",
+  ACTIVE: "success", DRAFT: "warning", SOLD: "neutral", EXPIRED: "error", ARCHIVED: "neutral", DELETED: "error",
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3020/api/v1";
+/** Strip the `/api/v1` suffix — uploads are served from the API's origin, not under the API prefix. */
+const API_ORIGIN = API_BASE.replace(/\/api\/v1\/?$/, "");
 
 /**
  * `GET /annonces/:id` real shape (confirmed 2026-07-24): `priceXAF`, not
  * `price`; no `images` array — only `imagesCount` + a single `primaryImageUrl`
  * (no endpoint exists to list every uploaded image back, cf. HANDOFF_INFRA.md).
+ *
+ * `primaryImageUrl` is built server-side from the API's own `BASE_URL` env
+ * var — observed pointing at `http://localhost:3020` in production
+ * (misconfigured, cf. HANDOFF_INFRA.md, 2026-07-27), which breaks every
+ * annonce image. Rebuilt from `primaryImageStorageKey` + our own configured
+ * origin instead, same pattern as `getAnnonceImageUrl()` in `@/lib/annonce`.
  */
 interface AnnonceData {
   id: string; title: string; description: string; priceXAF: number;
   type: "SALE" | "SERVICE"; condition: string; city: string;
-  categoryId: string; status: string; imagesCount: number; primaryImageUrl?: string;
+  categoryId: string; status: string; imagesCount: number;
+  primaryImageUrl?: string; primaryImageStorageKey?: string;
+  /** Stock — décrémenté automatiquement au paiement confirmé (cf. HANDOFF_INFRA.md, 2026-07-27). */
+  quantity?: number;
 }
 
 export default function AnnonceEditPage({ params }: { params: Promise<{ id: string }> }) {
@@ -56,6 +68,7 @@ export default function AnnonceEditPage({ params }: { params: Promise<{ id: stri
   const [city, setCity] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [type, setType] = useState<"SALE" | "SERVICE">("SALE");
+  const [quantity, setQuantity] = useState("1");
 
   useEffect(() => {
     fetch(`${API_BASE}/categories`)
@@ -77,6 +90,7 @@ export default function AnnonceEditPage({ params }: { params: Promise<{ id: stri
           setCity(a.city);
           setCategoryId(a.categoryId);
           setType(a.type);
+          setQuantity(String(a.quantity ?? 1));
         })
         .catch(() => setError("Impossible de charger l'annonce."))
         .finally(() => setLoading(false));
@@ -88,13 +102,26 @@ export default function AnnonceEditPage({ params }: { params: Promise<{ id: stri
   function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setError(null); setSaved(false);
+    const priceNum = Number(price);
+    /* Plus de plafond arbitraire : colonnes monétaires en BigInt côté API,
+     * qui applique elle-même une borne purement technique avec un message
+     * clair en cas de dépassement (cf. HANDOFF_INFRA.md, 2026-07-27). */
+    if (!Number.isFinite(priceNum)) {
+      setError("Prix invalide.");
+      return;
+    }
+    const quantityNum = type === "SALE" ? Number(quantity) : undefined;
+    if (quantityNum !== undefined && (!Number.isInteger(quantityNum) || quantityNum < 1)) {
+      setError("La quantité doit être un entier ≥ 1.");
+      return;
+    }
     startTransition(async () => {
       const result = await updateAnnonce(annonceId, {
-        title, description, priceXAF: Number(price), condition, city,
+        title, description, priceXAF: priceNum, condition, city, quantity: quantityNum,
       });
       if (result.ok) {
         setSaved(true);
-        setAnnonce((a) => a ? { ...a, title, description, priceXAF: Number(price), condition, city } : a);
+        setAnnonce((a) => a ? { ...a, title, description, priceXAF: priceNum, condition, city, quantity: quantityNum } : a);
       } else {
         setError(result.message);
       }
@@ -130,6 +157,7 @@ export default function AnnonceEditPage({ params }: { params: Promise<{ id: stri
         ...a,
         imagesCount: updated?.imagesCount ?? a.imagesCount,
         primaryImageUrl: updated?.primaryImageUrl ?? a.primaryImageUrl,
+        primaryImageStorageKey: updated?.primaryImageStorageKey ?? a.primaryImageStorageKey,
       } : a);
     });
   }
@@ -201,6 +229,32 @@ export default function AnnonceEditPage({ params }: { params: Promise<{ id: stri
             <RefreshCw className="w-4 h-4" /> Renouveler
           </Button>
         )}
+        {annonce.status === "ACTIVE" && (
+          <Button size="sm" variant="secondary" loading={pending}
+            onClick={() => {
+              setActionError(null);
+              startTransition(async () => {
+                const result = await archiveAnnonce(annonce.id);
+                if (result.ok) setAnnonce((a) => a ? { ...a, status: "ARCHIVED" } : a);
+                else setActionError(result.message);
+              });
+            }}>
+            <Archive className="w-4 h-4" /> Archiver
+          </Button>
+        )}
+        {annonce.status === "ARCHIVED" && (
+          <Button size="sm" variant="secondary" loading={pending}
+            onClick={() => {
+              setActionError(null);
+              startTransition(async () => {
+                const result = await unarchiveAnnonce(annonce.id);
+                if (result.ok) setAnnonce((a) => a ? { ...a, status: "ACTIVE" } : a);
+                else setActionError(result.message);
+              });
+            }}>
+            <ArchiveRestore className="w-4 h-4" /> Désarchiver
+          </Button>
+        )}
         <Button size="sm" variant="secondary" loading={pending}
           className="text-error border-error hover:bg-error-light ml-auto"
           onClick={() => {
@@ -238,10 +292,15 @@ export default function AnnonceEditPage({ params }: { params: Promise<{ id: stri
       <div className="bg-white rounded-2xl border border-border p-5 space-y-3">
         <p className="text-sm font-semibold text-text-primary">Photos ({annonce.imagesCount}/10)</p>
         <div className="flex gap-3 flex-wrap">
-          {annonce.primaryImageUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={annonce.primaryImageUrl} alt="" className="w-20 h-20 rounded-xl object-cover border border-border" />
-          )}
+          {(() => {
+            const imgSrc = annonce.primaryImageStorageKey
+              ? `${API_ORIGIN}/uploads/${annonce.primaryImageStorageKey}`
+              : annonce.primaryImageUrl;
+            return imgSrc && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={imgSrc} alt="" className="w-20 h-20 rounded-xl object-cover border border-border" />
+            );
+          })()}
           {annonce.imagesCount < 10 && (
             <label className="w-20 h-20 rounded-xl border-2 border-dashed border-border hover:border-brand flex items-center justify-center cursor-pointer transition-colors text-text-disabled hover:text-brand">
               <Upload className="w-6 h-6" />
@@ -283,6 +342,15 @@ export default function AnnonceEditPage({ params }: { params: Promise<{ id: stri
             </div>
           )}
         </div>
+
+        {type === "SALE" && (
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-text-secondary">Quantité disponible</label>
+            <Input type="number" min={1} value={quantity}
+              onChange={(e) => { setQuantity(e.target.value); setSaved(false); }} />
+            <p className="text-xs text-text-disabled">Décrémentée automatiquement à chaque vente — passe en &laquo;&nbsp;Vendue&nbsp;&raquo; à 0.</p>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">

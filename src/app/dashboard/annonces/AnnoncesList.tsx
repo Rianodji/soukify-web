@@ -11,14 +11,15 @@ import { usePolledData } from "@/hooks/usePolledData";
 import type { Annonce, PaginatedResponse } from "@/types/api";
 
 const STATUS_COLORS: Record<string, "default" | "success" | "warning" | "error" | "neutral"> = {
-  ACTIVE:  "success",
-  DRAFT:   "warning",
-  SOLD:    "neutral",
-  EXPIRED: "error",
-  DELETED: "error",
+  ACTIVE:   "success",
+  DRAFT:    "warning",
+  SOLD:     "neutral",
+  EXPIRED:  "error",
+  ARCHIVED: "neutral",
+  DELETED:  "error",
 };
 const STATUS_LABELS: Record<string, string> = {
-  ACTIVE: "Active", DRAFT: "Brouillon", SOLD: "Vendue", EXPIRED: "Expirée", DELETED: "Supprimée",
+  ACTIVE: "Active", DRAFT: "Brouillon", SOLD: "Vendue", EXPIRED: "Expirée", ARCHIVED: "Archivée", DELETED: "Supprimée",
 };
 
 interface AnnoncesListProps {

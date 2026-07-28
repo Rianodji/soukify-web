@@ -86,6 +86,20 @@ export async function fetchMyConversations(): Promise<DashboardConversation[]> {
   return serverGet<DashboardConversation[]>("/conversations?limit=20", 0);
 }
 
+/**
+ * `POST /conversations` field renamed `sellerId` -> `otherUserId` in
+ * `v1.0.21` — the handler now infers who's buyer/seller from the real
+ * relationship between the caller and the annonce's actual seller, so a
+ * seller can call this too (the "Répondre" button on `ANNONCE_VIEWED`,
+ * passing `data.viewerId` as `otherUserId`), not just a buyer contacting the
+ * seller (cf. HANDOFF_INFRA.md, 2026-07-28).
+ */
+export async function createConversation(annonceId: string, otherUserId: string): Promise<ActionResult<{ id: string }>> {
+  const result = await toResult(serverPost<{ conversationId: string }>("/conversations", { annonceId, otherUserId }));
+  if (!result.ok) return result;
+  return { ok: true, data: { id: result.data.conversationId } };
+}
+
 export async function fetchNotifications(): Promise<NotificationsResponse> {
   return serverGet<NotificationsResponse>("/notifications?limit=20", 0);
 }
@@ -208,6 +222,8 @@ export async function createAnnonce(data: {
   negotiable: boolean;
   city: string;
   shopId?: string;
+  /** Optionnel, défaut 1 côté API (cf. HANDOFF_INFRA.md, 2026-07-27). */
+  quantity?: number;
 }): Promise<ActionResult<{ id: string }>> {
   /* POST /annonces returns { annonceId }, not the full Annonce object —
    * this previously read `.id` (always undefined), so createAnnonce()
@@ -304,7 +320,7 @@ export async function deleteOwnAnnonce(annonceId: string): Promise<ActionResult<
  */
 export async function updateAnnonce(id: string, data: {
   title?: string; description?: string; priceXAF?: number;
-  condition?: string; city?: string;
+  condition?: string; city?: string; quantity?: number;
 }): Promise<ActionResult<void>> {
   const result = await toResult(serverPatch<void>(`/annonces/${id}`, data));
   if (result.ok) {
@@ -316,6 +332,30 @@ export async function updateAnnonce(id: string, data: {
 
 export async function renewAnnonce(id: string): Promise<ActionResult<void>> {
   const result = await toResult(serverPost<void>(`/annonces/${id}/renew`));
+  if (result.ok) {
+    revalidatePath(`/dashboard/annonces/${id}`);
+    revalidatePath("/dashboard/annonces");
+  }
+  return result;
+}
+
+/**
+ * Archivage réversible (`ACTIVE -> ARCHIVED`), distinct de `deleteOwnAnnonce`
+ * qui est une suppression définitive (cf. HANDOFF_INFRA.md, 2026-07-27).
+ * Invisible en recherche/liste boutique tant qu'archivée, reste modifiable.
+ */
+export async function archiveAnnonce(id: string): Promise<ActionResult<void>> {
+  const result = await toResult(serverPost<void>(`/annonces/${id}/archive`));
+  if (result.ok) {
+    revalidatePath(`/dashboard/annonces/${id}`);
+    revalidatePath("/dashboard/annonces");
+  }
+  return result;
+}
+
+/** `ARCHIVED -> ACTIVE` — échoue si l'annonce a expiré entre-temps (cf. HANDOFF_INFRA.md, 2026-07-27). */
+export async function unarchiveAnnonce(id: string): Promise<ActionResult<void>> {
+  const result = await toResult(serverPost<void>(`/annonces/${id}/unarchive`));
   if (result.ok) {
     revalidatePath(`/dashboard/annonces/${id}`);
     revalidatePath("/dashboard/annonces");
